@@ -38,7 +38,6 @@ func (hc *HealthCheck) Start() {
 		for {
 			select {
 			case <-hc.ticker.C:
-				log.Debugf("New check for: %v", hc.routerHostIP)
 				go checkRouterHost(hc.routerHostIP, hc.status)
 
 			case <-hc.stop:

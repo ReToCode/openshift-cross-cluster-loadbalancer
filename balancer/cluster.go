@@ -1,83 +1,170 @@
 package balancer
 
 import (
-	"sync"
-
-	"time"
+	"net"
 
 	log "github.com/sirupsen/logrus"
+	"time"
 )
 
 type Cluster struct {
-	name                string
-	routerHosts         muxRouterHosts
-	healthyHostCount    int
-	healthChecksResults chan HealthCheckResult
-}
+	name string
 
-type muxRouterHosts struct {
-	mux sync.RWMutex
-	m   map[string]Host
+	clients   map[string]net.Conn
+	Scheduler *Scheduler
+
+	listener net.Listener
+
+	// Channels
+	connect    chan (*Context)
+	disconnect chan (net.Conn)
+	stop       chan bool
 }
 
 func NewCluster(name string) *Cluster {
 	return &Cluster{
-		name:                name,
-		healthyHostCount:    0,
-		healthChecksResults: make(chan HealthCheckResult),
-		routerHosts:         muxRouterHosts{m: make(map[string]Host)},
+		name:       name,
+		Scheduler:  NewScheduler(),
+		clients:    make(map[string]net.Conn),
+		connect:    make(chan *Context),
+		disconnect: make(chan net.Conn),
+		stop:       make(chan bool),
 	}
 }
 
-func (c *Cluster) Start() {
-	// TODO:
-	// Handle connections
+func (c *Cluster) Start() error {
+	go func() {
 
-	// Handle health check results
-	go handleHealthCheckResults(c)
-}
+		for {
+			select {
+			case client := <-c.disconnect:
+				c.HandleClientDisconnect(client)
 
-func (c *Cluster) AddRouterHost(ip string) {
-	newHost := &RouterHost{
-		hostIP:      ip,
-		healthy:     false,
-		healthCheck: NewHealthCheck(ip, c.healthChecksResults, 5*time.Second),
+			case ctx := <-c.connect:
+				c.HandleClientConnect(ctx)
+
+			case <-c.stop:
+				c.Stop()
+				return
+			}
+		}
+	}()
+
+	c.Scheduler.Start()
+
+	if err := c.Listen(); err != nil {
+		c.Stop()
+		return err
 	}
 
-	c.routerHosts.mux.Lock()
-	c.routerHosts.m[ip] = newHost
-	c.routerHosts.mux.Unlock()
-
-	log.Infof("New router host was added: %v", ip)
-	go newHost.Start()
+	return nil
 }
 
-func handleHealthCheckResults(c *Cluster) {
-	for {
+func (c *Cluster) Stop() {
+	c.Scheduler.Stop()
+
+	// Todo draining
+	// Disconnect existing clients
+	for _, conn := range c.clients {
+		log.Debugf("Closing connection to client: %v", c.clients)
+		conn.Close()
+	}
+
+	// Create new empty client list
+	c.clients = make(map[string]net.Conn)
+}
+
+func (c *Cluster) HandleClientDisconnect(client net.Conn) {
+	client.Close()
+	delete(c.clients, client.RemoteAddr().String())
+	c.Scheduler.stats.Connections <- uint(len(c.clients))
+}
+
+func (c *Cluster) HandleClientConnect(ctx *Context) {
+	client := ctx.Conn
+
+	c.clients[client.RemoteAddr().String()] = client
+	c.Scheduler.stats.Connections <- uint(len(c.clients))
+
+	go func() {
+		c.handleConnection(ctx)
+		c.disconnect <- client
+	}()
+}
+
+func (c *Cluster) Listen() (err error) {
+	c.listener, err = net.Listen("tcp", "localhost:9999")
+	if err != nil {
+		log.Error("Error starting listener on localhost:9999", err)
+		return err
+	}
+
+	go func() {
+		for {
+			conn, err := c.listener.Accept()
+			if err != nil {
+				log.Error(err)
+				return
+			}
+
+			go c.wrap(conn)
+		}
+	}()
+
+	log.Info("Started global listener on localhost:9999")
+
+	return nil
+}
+
+func (c *Cluster) wrap(conn net.Conn) {
+	// Todo get hostname out of sni
+	c.connect <- &Context{
+		Hostname: "bla",
+		Conn:     conn,
+	}
+}
+
+func (c *Cluster) handleConnection(ctx *Context) {
+	clientConn := ctx.Conn
+
+	log.Debug("Accepted ", clientConn.RemoteAddr(), " -> ", c.name)
+
+	// Find a router host that is healthy to forward the request to
+	var err error
+	routerHost, err := c.Scheduler.TakeRouterHost(*ctx)
+	if err != nil {
+		log.Error(err, "; Closing connection: ", clientConn.RemoteAddr())
+		return
+	}
+
+	log.Debugf("Selected target router host: %v", routerHost.hostIP)
+
+	// Connect to router host
+	routerHostConn, err := net.DialTimeout("tcp", routerHost.hostIP, 10 * time.Second)
+	if err != nil {
+		c.Scheduler.IncrementRefused(routerHost.hostIP)
+		log.Errorf("Error connecting to router host: %v. Err: %v", routerHost.hostIP, err)
+		return
+	}
+	c.Scheduler.IncrementConnection(routerHost.hostIP)
+	defer c.Scheduler.DecrementConnection(routerHost.hostIP)
+
+	// Proxy the request & response bytes for tx stats
+	log.Debug("Begin ", clientConn.RemoteAddr(), " -> ", c.listener.Addr(), " -> ", routerHostConn.RemoteAddr())
+	cs := proxy(clientConn, routerHostConn, 10 * time.Second)
+	bs := proxy(routerHostConn, clientConn, 10 * time.Second)
+
+	isTx, isRx := true, true
+	for isTx || isRx {
 		select {
-		case res := <-c.healthChecksResults:
-			log.Debugf("Got new health check result of %v. %v", res.routerHostIP, res.healthy)
-
-			c.routerHosts.mux.Lock()
-
-			r := c.routerHosts.m[res.routerHostIP]
-
-			// Healthy > not healthy
-			if r.Healthy() && !res.healthy {
-				c.healthyHostCount--
-				log.Warningf("Router host %v degraded. Healthy host count: %v", res.routerHostIP, c.healthyHostCount)
-			}
-
-			// Not healthy > healthy
-			if !r.Healthy() && res.healthy {
-				c.healthyHostCount++
-				log.Infof("Router host became healthy %v. Healthy host count: %v", res.routerHostIP, c.healthyHostCount)
-			}
-
-			// Update state
-			r.SetHealth(res.healthy)
-
-			c.routerHosts.mux.Unlock()
+		case s, ok := <-cs:
+			isRx = ok
+			c.Scheduler.IncrementRx(routerHost.hostIP, s.CountWrite)
+		case s, ok := <-bs:
+			isTx = ok
+			c.Scheduler.IncrementTx(routerHost.hostIP, s.CountWrite)
 		}
 	}
+
+	log.Debug("End ", clientConn.RemoteAddr(), " -> ", c.listener.Addr(), " -> ", routerHostConn.RemoteAddr())
 }
