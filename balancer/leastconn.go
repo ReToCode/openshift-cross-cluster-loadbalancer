@@ -1,10 +1,14 @@
 package balancer
 
-import "errors"
+import (
+	"errors"
 
-type LeastConnectionsBalancer struct {}
+	"github.com/ReToCode/openshift-cross-cluster-loadbalancer/balancer/core"
+)
 
-func (b *LeastConnectionsBalancer) GetRouterHost(ctx Context, routerHosts []*RouterHost) (*RouterHost, error) {
+type LeastConnectionsBalancer struct{}
+
+func (b *LeastConnectionsBalancer) GetRouterHost(ctx core.Context, routerHosts []*RouterHost) (*RouterHost, error) {
 	if len(routerHosts) == 0 {
 		return nil, errors.New("no available router hosts found")
 	}
@@ -18,4 +22,3 @@ func (b *LeastConnectionsBalancer) GetRouterHost(ctx Context, routerHosts []*Rou
 
 	return least, nil
 }
-

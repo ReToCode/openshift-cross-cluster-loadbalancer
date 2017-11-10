@@ -1,9 +1,9 @@
 package api
 
 import (
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/golang/glog"
-	"github.com/gin-contrib/cors"
 )
 
 func init() {

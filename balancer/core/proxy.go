@@ -1,28 +1,23 @@
-package balancer
+package core
 
 import (
 	"io"
 	"net"
+
 	"time"
 
 	log "github.com/sirupsen/logrus"
 )
 
 const (
-
 	/* Buffer size to handle data from socket */
 	BUFFER_SIZE = 16 * 1024
 
-	/* Interval of pushing aggregated read/write stats */
+	/* Interval of pushing r/w stats */
 	PROXY_STATS_PUSH_INTERVAL = 1 * time.Second
 )
 
-/**
- * Perform copy/proxy data from 'from' to 'to' socket, counting r/w stats and
- * dropping connection if timeout exceeded
- */
-func proxy(to net.Conn, from net.Conn, timeout time.Duration) <-chan ReadWriteCount {
-
+func Proxy(to net.Conn, from net.Conn, timeout time.Duration) <-chan ReadWriteCount {
 	stats := make(chan ReadWriteCount)
 	outStats := make(chan ReadWriteCount)
 
@@ -74,8 +69,7 @@ func proxy(to net.Conn, from net.Conn, timeout time.Duration) <-chan ReadWriteCo
 
 	// Run proxy copier
 	go func() {
-		err := Copy(to, from, stats)
-		// hack to determine normal close. TODO: fix when it will be exposed in golang
+		err := copy(to, from, stats)
 		e, ok := err.(*net.OpError)
 		if err != nil && (!ok || e.Err.Error() != "use of closed network connection") {
 			log.Warn(err)
@@ -84,18 +78,13 @@ func proxy(to net.Conn, from net.Conn, timeout time.Duration) <-chan ReadWriteCo
 		to.Close()
 		from.Close()
 
-		// Stop stats collecting goroutine
 		close(stats)
 	}()
 
 	return outStats
 }
 
-/**
- * It's build by analogy of io.Copy
- */
-func Copy(to io.Writer, from io.Reader, ch chan<- ReadWriteCount) error {
-
+func copy(to io.Writer, from io.Reader, ch chan<- ReadWriteCount) error {
 	buf := make([]byte, BUFFER_SIZE)
 	var err error = nil
 

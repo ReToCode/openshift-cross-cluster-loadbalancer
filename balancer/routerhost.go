@@ -1,30 +1,35 @@
 package balancer
 
+import "time"
+
 type RouterHostStats struct {
 	Healthy            bool   `json:"live"`
 	TotalConnections   int64  `json:"total_connections"`
 	ActiveConnections  uint   `json:"active_connections"`
 	RefusedConnections uint64 `json:"refused_connections"`
-	RxBytes            uint64 `json:"rx"`
-	TxBytes            uint64 `json:"tx"`
-	RxSecond           uint   `json:"rx_second"`
-	TxSecond           uint   `json:"tx_second"`
 }
 
 type RouterHost struct {
-	Stats       RouterHostStats `json:"stats"`
-	hostIP      string
+	Stats RouterHostStats `json:"stats"`
+	HostIP      string
+	Routes      []string
+
 	healthCheck *HealthCheck
 }
 
-func (rh *RouterHost) Start() {
-	// TODO: Handle connections
+func NewRouterHost(ip string, routes []string, s chan HealthCheckResult) *RouterHost {
+	return &RouterHost{
+		HostIP:      ip,
+		Routes:      routes,
+		Stats:       RouterHostStats{},
+		healthCheck: NewHealthCheck(ip, s, 1*time.Second),
+	}
+}
 
+func (rh *RouterHost) Start() {
 	rh.healthCheck.Start()
 }
 
 func (rh *RouterHost) Stop() {
-	// TODO: Undo start
-
 	rh.healthCheck.Stop()
 }

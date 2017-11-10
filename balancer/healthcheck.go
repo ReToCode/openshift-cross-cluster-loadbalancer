@@ -30,7 +30,7 @@ func NewHealthCheck(ip string, status chan HealthCheckResult, checkInterval time
 }
 
 func (hc *HealthCheck) Start() {
-	log.Infof("Starting health checks for %v", hc.routerHostIP)
+	log.Infof("Starting health checks for router host %v", hc.routerHostIP)
 
 	hc.ticker = *time.NewTicker(hc.interval)
 
@@ -52,7 +52,7 @@ func (hc *HealthCheck) Start() {
 }
 
 func (hc *HealthCheck) Stop() {
-	log.Infof("Stopping health checks for %v", hc.routerHostIP)
+	log.Infof("Stopping health checks for router host %v", hc.routerHostIP)
 	hc.stop <- true
 }
 
@@ -67,7 +67,7 @@ func checkRouterHost(routerHostIp string, result chan<- HealthCheckResult) {
 		conn.Close()
 	}
 
-	// Tell the cluster about the health result
+	// Tell the balancer about the health result
 	result <- HealthCheckResult{
 		routerHostIP: routerHostIp,
 		healthy:      healthy,

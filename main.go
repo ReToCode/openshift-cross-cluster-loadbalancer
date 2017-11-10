@@ -14,12 +14,13 @@ func init() {
 
 func main() {
 	// Dummy config to develop
-	cluster := balancer.NewCluster("OpenShift Local")
-	cluster.Start()
+	b := balancer.NewBalancer("localhost:9999")
+	b.Start()
 
 	// Add local host as router host
-	cluster.Scheduler.AddRouterHost("localhost:8080")
-	cluster.Scheduler.AddRouterHost("localhost:8081")
+	b.Scheduler.AddRouterHost("localhost:8080", []string{"localhost:8080"})
+	b.Scheduler.AddRouterHost("localhost:8081", []string{"localhost:8081"})
+	b.Scheduler.AddRouterHost("localhost:8082", []string{"localhost:8082", "3.ch"})
 
 	// Sleep 4 ever
 	select {}
