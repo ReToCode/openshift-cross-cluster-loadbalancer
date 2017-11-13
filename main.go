@@ -14,13 +14,16 @@ func init() {
 
 func main() {
 	// Dummy config to develop
-	b := balancer.NewBalancer("localhost:9999")
+	b := balancer.NewBalancer("localhost:8080", "localhost:8443")
 	b.Start()
 
 	// Add local host as router host
-	b.Scheduler.AddRouterHost("localhost:8080", []string{"localhost:8080"})
-	b.Scheduler.AddRouterHost("localhost:8081", []string{"localhost:8081", "localhost:9999"})
-	b.Scheduler.AddRouterHost("localhost:8082", []string{"localhost:8082", "3.ch"})
+	// Http backends
+	b.Scheduler.AddRouterHost("localhost:8001", []string{"localhost:8001", "no.ch"})
+	b.Scheduler.AddRouterHost("localhost:8002", []string{"localhost:8002", "no.ch"})
+
+	// Https Backend
+	b.Scheduler.AddRouterHost("localhost:8003", []string{"localhost:8003", "tls.ch"})
 
 	// Sleep 4 ever
 	select {}

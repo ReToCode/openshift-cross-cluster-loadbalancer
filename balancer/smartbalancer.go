@@ -9,13 +9,20 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+type BalancerConfig struct {
+	httpListen        string
+	httpsListen       string
+	proxyTimeout      time.Duration
+	routerHostTimeout time.Duration
+}
+
 type Balancer struct {
 	clients   map[string]net.Conn
 	Scheduler *Scheduler
 
-	listenCfg  string
-	timeoutCfg time.Duration
-	listener   net.Listener
+	cfg           BalancerConfig
+	httpListener  net.Listener
+	httpsListener net.Listener
 
 	// Channels
 	connect    chan (*core.Context)
@@ -23,11 +30,15 @@ type Balancer struct {
 	stop       chan bool
 }
 
-func NewBalancer(listenCfg string) *Balancer {
+func NewBalancer(httpListenCfg string, httpsListenCfg string) *Balancer {
 	return &Balancer{
-		Scheduler:  NewScheduler(),
-		listenCfg:  listenCfg,
-		timeoutCfg: 10 * time.Second,
+		Scheduler: NewScheduler(),
+		cfg: BalancerConfig{
+			httpListen:        httpListenCfg,
+			httpsListen:       httpsListenCfg,
+			proxyTimeout:      10 * time.Second,
+			routerHostTimeout: 5 * time.Second,
+		},
 		clients:    make(map[string]net.Conn),
 		connect:    make(chan *core.Context),
 		disconnect: make(chan net.Conn),
@@ -56,7 +67,11 @@ func (b *Balancer) Start() error {
 	// Scheduler takes care of selecting the right backend
 	b.Scheduler.Start()
 
-	if err := b.Listen(); err != nil {
+	if err := b.ListenHttps(); err != nil {
+		b.Stop()
+		return err
+	}
+	if err := b.ListenHttp(); err != nil {
 		b.Stop()
 		return err
 	}
@@ -96,42 +111,81 @@ func (b *Balancer) HandleClientConnect(ctx *core.Context) {
 	}()
 }
 
-func (b *Balancer) Listen() (err error) {
-	b.listener, err = net.Listen("tcp", b.listenCfg)
+func (b *Balancer) ListenHttps() (err error) {
+	b.httpsListener, err = net.Listen("tcp", b.cfg.httpsListen)
 	if err != nil {
-		log.Error("Error starting listener on "+b.listenCfg, err)
+		log.Error("Error starting https listener on "+b.cfg.httpsListen, err)
 		return err
 	}
 
 	go func() {
 		for {
-			conn, err := b.listener.Accept()
+			conn, err := b.httpsListener.Accept()
 			if err != nil {
 				log.Error(err)
 				return
 			}
 
-			go b.wrap(conn)
+			go b.wrapHttpsConnection(conn)
 		}
 	}()
 
-	log.Info("Started global listener on " + b.listenCfg)
+	log.Info("Started global https listener on " + b.cfg.httpsListen)
 
 	return nil
 }
 
-func (b *Balancer) wrap(conn net.Conn) {
+func (b *Balancer) ListenHttp() (err error) {
+	b.httpListener, err = net.Listen("tcp", b.cfg.httpListen)
+	if err != nil {
+		log.Error("Error starting http listener on "+b.cfg.httpListen, err)
+		return err
+	}
+
+	go func() {
+		for {
+			conn, err := b.httpListener.Accept()
+			if err != nil {
+				log.Error(err)
+				return
+			}
+
+			go b.wrapHttpConnection(conn)
+		}
+	}()
+
+	log.Info("Started global http listener on " + b.cfg.httpListen)
+
+	return nil
+}
+
+func (b *Balancer) wrapHttpsConnection(conn net.Conn) {
+	// Get hostname based on SNI protocol
+	sniConn, hostname, err := core.Sniff(conn, 5*time.Second)
+	if err != nil {
+		log.Error("Failed to get / parse ClientHello for sni: ", err)
+		conn.Close()
+		return
+	}
+	log.Debugf("Hostname is: %v", hostname)
+
+	b.connect <- &core.Context{
+		Hostname: hostname,
+		Conn:     core.NewBufferedConn(sniConn),
+	}
+}
+
+func (b *Balancer) wrapHttpConnection(conn net.Conn) {
+	// Get hostname out of http host header or take host value
 	bufConn := core.NewBufferedConn(conn)
 	hostname := core.HttpHostHeader(bufConn.Reader)
 	log.Debugf("Hostname is: %v", hostname)
 
 	b.connect <- &core.Context{
 		Hostname: hostname,
-		Conn:     bufConn,
+		Conn:     core.NewBufferedConn(bufConn),
 	}
 }
-
-
 
 func (b *Balancer) handleConnection(ctx *core.Context) {
 	clientConn := ctx.Conn
@@ -149,7 +203,7 @@ func (b *Balancer) handleConnection(ctx *core.Context) {
 	log.Debugf("Selected target router host: %v", routerHost.HostIP)
 
 	// Connect to router host
-	routerHostConn, err := net.DialTimeout("tcp", routerHost.HostIP, b.timeoutCfg)
+	routerHostConn, err := net.DialTimeout("tcp", routerHost.HostIP, b.cfg.routerHostTimeout)
 	bufferedRouterHostConn := core.NewBufferedConn(routerHostConn)
 	if err != nil {
 		b.Scheduler.IncrementRefused(routerHost.HostIP)
@@ -160,9 +214,9 @@ func (b *Balancer) handleConnection(ctx *core.Context) {
 	defer b.Scheduler.DecrementConnection(routerHost.HostIP)
 
 	// Proxy the request & response bytes
-	log.Debug("Begin ", clientConn.RemoteAddr(), " -> ", b.listener.Addr(), " -> ", bufferedRouterHostConn.RemoteAddr())
-	cs := core.Proxy(clientConn, bufferedRouterHostConn, b.timeoutCfg)
-	bs := core.Proxy(bufferedRouterHostConn, clientConn, b.timeoutCfg)
+	//log.Debug("Begin ", clientConn.RemoteAddr(), " -> ", bufferedRouterHostConn.RemoteAddr())
+cs := core.Proxy(clientConn, bufferedRouterHostConn, b.cfg.proxyTimeout)
+	bs := core.Proxy(bufferedRouterHostConn, clientConn, b.cfg.proxyTimeout)
 
 	isTx, isRx := true, true
 	for isTx || isRx {
@@ -174,5 +228,5 @@ func (b *Balancer) handleConnection(ctx *core.Context) {
 		}
 	}
 
-	log.Debug("End ", clientConn.RemoteAddr(), " -> ", b.listener.Addr(), " -> ", bufferedRouterHostConn.RemoteAddr())
+	//log.Debug("End ", clientConn.RemoteAddr(), " -> ", bufferedRouterHostConn.RemoteAddr())
 }

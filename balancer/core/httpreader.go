@@ -24,6 +24,7 @@ func HttpHostHeader(br *bufio.Reader) string {
 			b, _ = br.Peek(n)
 			peekSize = n
 		}
+
 		if len(b) > 0 {
 			if b[0] < 'A' || b[0] > 'Z' {
 				// Doesn't look like an HTTP verb

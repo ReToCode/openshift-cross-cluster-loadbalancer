@@ -68,7 +68,7 @@ func Proxy(to BufferedConn, from BufferedConn, timeout time.Duration) <-chan Rea
 
 	// Run proxy copier
 	go func() {
-		err := copy(to, from, stats)
+		err := copyData(to, from, stats)
 		e, ok := err.(*net.OpError)
 		if err != nil && (!ok || e.Err.Error() != "use of closed network connection") {
 			log.Warn(err)
@@ -83,7 +83,7 @@ func Proxy(to BufferedConn, from BufferedConn, timeout time.Duration) <-chan Rea
 	return outStats
 }
 
-func copy(to BufferedConn, from BufferedConn, ch chan<- ReadWriteCount) error {
+func copyData(to io.Writer, from io.Reader, ch chan<- ReadWriteCount) error {
 	buf := make([]byte, BUFFER_SIZE)
 	var err error = nil
 
