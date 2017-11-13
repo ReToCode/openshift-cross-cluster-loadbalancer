@@ -19,7 +19,7 @@ func main() {
 
 	// Add local host as router host
 	b.Scheduler.AddRouterHost("localhost:8080", []string{"localhost:8080"})
-	b.Scheduler.AddRouterHost("localhost:8081", []string{"localhost:8081"})
+	b.Scheduler.AddRouterHost("localhost:8081", []string{"localhost:8081", "localhost:9999"})
 	b.Scheduler.AddRouterHost("localhost:8082", []string{"localhost:8082", "3.ch"})
 
 	// Sleep 4 ever

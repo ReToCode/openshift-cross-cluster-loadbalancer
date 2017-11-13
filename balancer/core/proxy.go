@@ -17,7 +17,7 @@ const (
 	PROXY_STATS_PUSH_INTERVAL = 1 * time.Second
 )
 
-func Proxy(to net.Conn, from net.Conn, timeout time.Duration) <-chan ReadWriteCount {
+func Proxy(to BufferedConn, from BufferedConn, timeout time.Duration) <-chan ReadWriteCount {
 	stats := make(chan ReadWriteCount)
 	outStats := make(chan ReadWriteCount)
 
@@ -27,7 +27,6 @@ func Proxy(to net.Conn, from net.Conn, timeout time.Duration) <-chan ReadWriteCo
 
 	// Stats collecting goroutine
 	go func() {
-
 		if timeout > 0 {
 			from.SetReadDeadline(time.Now().Add(timeout))
 		}
@@ -84,7 +83,7 @@ func Proxy(to net.Conn, from net.Conn, timeout time.Duration) <-chan ReadWriteCo
 	return outStats
 }
 
-func copy(to io.Writer, from io.Reader, ch chan<- ReadWriteCount) error {
+func copy(to BufferedConn, from BufferedConn, ch chan<- ReadWriteCount) error {
 	buf := make([]byte, BUFFER_SIZE)
 	var err error = nil
 

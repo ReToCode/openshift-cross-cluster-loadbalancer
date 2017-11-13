@@ -3,6 +3,7 @@ package core
 import (
 	"bufio"
 	"bytes"
+
 	"net/http"
 )
 
@@ -18,6 +19,7 @@ func HttpHostHeader(br *bufio.Reader) string {
 			return httpHostHeaderFromBytes(b)
 		}
 		b, err := br.Peek(peekSize)
+
 		if n := br.Buffered(); n > peekSize {
 			b, _ = br.Peek(n)
 			peekSize = n

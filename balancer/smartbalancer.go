@@ -5,8 +5,6 @@ import (
 
 	"time"
 
-	"bufio"
-
 	"github.com/ReToCode/openshift-cross-cluster-loadbalancer/balancer/core"
 	log "github.com/sirupsen/logrus"
 )
@@ -123,14 +121,13 @@ func (b *Balancer) Listen() (err error) {
 }
 
 func (b *Balancer) wrap(conn net.Conn) {
-	bufio.NewReader(conn)
-	// TODO
-	//hostname := core.HttpHostHeader(buf)
-	//log.Debugf("Hostname is: %v", hostname)
+	bufConn := core.NewBufferedConn(conn)
+	hostname := core.HttpHostHeader(bufConn.Reader)
+	log.Debugf("Hostname is: %v", hostname)
 
 	b.connect <- &core.Context{
-		Hostname: "",
-		Conn:     conn,
+		Hostname: hostname,
+		Conn:     bufConn,
 	}
 }
 
@@ -153,6 +150,7 @@ func (b *Balancer) handleConnection(ctx *core.Context) {
 
 	// Connect to router host
 	routerHostConn, err := net.DialTimeout("tcp", routerHost.HostIP, b.timeoutCfg)
+	bufferedRouterHostConn := core.NewBufferedConn(routerHostConn)
 	if err != nil {
 		b.Scheduler.IncrementRefused(routerHost.HostIP)
 		log.Errorf("Error connecting to router host: %v. Err: %v", routerHost.HostIP, err)
@@ -162,9 +160,9 @@ func (b *Balancer) handleConnection(ctx *core.Context) {
 	defer b.Scheduler.DecrementConnection(routerHost.HostIP)
 
 	// Proxy the request & response bytes
-	log.Debug("Begin ", clientConn.RemoteAddr(), " -> ", b.listener.Addr(), " -> ", routerHostConn.RemoteAddr())
-	cs := core.Proxy(clientConn, routerHostConn, b.timeoutCfg)
-	bs := core.Proxy(routerHostConn, clientConn, b.timeoutCfg)
+	log.Debug("Begin ", clientConn.RemoteAddr(), " -> ", b.listener.Addr(), " -> ", bufferedRouterHostConn.RemoteAddr())
+	cs := core.Proxy(clientConn, bufferedRouterHostConn, b.timeoutCfg)
+	bs := core.Proxy(bufferedRouterHostConn, clientConn, b.timeoutCfg)
 
 	isTx, isRx := true, true
 	for isTx || isRx {
@@ -176,5 +174,5 @@ func (b *Balancer) handleConnection(ctx *core.Context) {
 		}
 	}
 
-	log.Debug("End ", clientConn.RemoteAddr(), " -> ", b.listener.Addr(), " -> ", routerHostConn.RemoteAddr())
+	log.Debug("End ", clientConn.RemoteAddr(), " -> ", b.listener.Addr(), " -> ", bufferedRouterHostConn.RemoteAddr())
 }
