@@ -3,6 +3,7 @@ package balancer
 import (
 	"github.com/ReToCode/openshift-cross-cluster-loadbalancer/balancer/core"
 	log "github.com/sirupsen/logrus"
+	"github.com/ReToCode/openshift-cross-cluster-loadbalancer/api/models"
 )
 
 type Stats struct {
@@ -41,6 +42,7 @@ type Scheduler struct {
 	operations chan StatsOperation
 	elect      chan ElectRequest
 	stop       chan bool
+	ToUi       chan models.BaseModel
 }
 
 func NewScheduler() *Scheduler {
@@ -55,6 +57,7 @@ func NewScheduler() *Scheduler {
 		operations: make(chan StatsOperation),
 		elect:      make(chan ElectRequest),
 		stop:       make(chan bool),
+		ToUi:       make(chan models.BaseModel),
 	}
 }
 
@@ -204,6 +207,14 @@ func (s *Scheduler) handleHealthCheckResults(res HealthCheckResult) {
 	if !r.Stats.Healthy && res.healthy {
 		s.stats.HealthyHostCount++
 		log.Infof("Router host became healthy %v. Healthy host count: %v", res.routerHostIP, s.stats.HealthyHostCount)
+	}
+
+	// Tell the UI about a possible state change
+	if r.Stats.Healthy != res.healthy {
+		s.ToUi <- models.BaseModel{
+			Mutation: models.HOST_LIST,
+			Message:  r,
+		}
 	}
 
 	// Update state

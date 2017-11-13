@@ -1,6 +1,10 @@
 package models
 
+const (
+	HOST_LIST = "hostList"
+)
+
 type BaseModel struct {
-	Type    string
-	Message interface{}
+	Mutation string `json:"mutation"`
+	Message  interface{}
 }

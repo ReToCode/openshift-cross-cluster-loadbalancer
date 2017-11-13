@@ -25,8 +25,8 @@ type Balancer struct {
 	httpsListener net.Listener
 
 	// Channels
-	connect    chan (*core.Context)
-	disconnect chan (net.Conn)
+	connect    chan *core.Context
+	disconnect chan net.Conn
 	stop       chan bool
 }
 
@@ -215,7 +215,7 @@ func (b *Balancer) handleConnection(ctx *core.Context) {
 
 	// Proxy the request & response bytes
 	//log.Debug("Begin ", clientConn.RemoteAddr(), " -> ", bufferedRouterHostConn.RemoteAddr())
-cs := core.Proxy(clientConn, bufferedRouterHostConn, b.cfg.proxyTimeout)
+	cs := core.Proxy(clientConn, bufferedRouterHostConn, b.cfg.proxyTimeout)
 	bs := core.Proxy(bufferedRouterHostConn, clientConn, b.cfg.proxyTimeout)
 
 	isTx, isRx := true, true

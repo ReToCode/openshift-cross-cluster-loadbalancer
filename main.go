@@ -5,6 +5,7 @@ import (
 
 	"github.com/ReToCode/openshift-cross-cluster-loadbalancer/balancer"
 	log "github.com/sirupsen/logrus"
+	"github.com/ReToCode/openshift-cross-cluster-loadbalancer/api"
 )
 
 func init() {
@@ -16,6 +17,9 @@ func main() {
 	// Dummy config to develop
 	b := balancer.NewBalancer("localhost:8080", "localhost:8443")
 	b.Start()
+
+	// Run webserver
+	go api.RunAPI("localhost:8089", b)
 
 	// Add local host as router host
 	// Http backends
