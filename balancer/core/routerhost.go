@@ -1,18 +1,18 @@
-package balancer
+package core
 
 import "time"
 
 type RouterHostStats struct {
-	Healthy            bool   `json:"live"`
-	TotalConnections   int64  `json:"total_connections"`
-	ActiveConnections  uint   `json:"active_connections"`
-	RefusedConnections uint64 `json:"refused_connections"`
+	Healthy            bool   `json:"healthy"`
+	TotalConnections   int64  `json:"totalConnections"`
+	ActiveConnections  uint   `json:"activeConnections"`
+	RefusedConnections uint64 `json:"refusedConnections"`
 }
 
 type RouterHost struct {
-	Stats RouterHostStats `json:"stats"`
-	HostIP      string
-	Routes      []string
+	Stats  RouterHostStats `json:"stats"`
+	HostIP string          `json:"hostIP"`
+	Routes []string        `json:"-"`
 
 	healthCheck *HealthCheck
 }

@@ -1,4 +1,4 @@
-package balancer
+package strategy
 
 import (
 	"errors"
@@ -8,7 +8,7 @@ import (
 
 type LeastConnectionsBalancer struct{}
 
-func (b *LeastConnectionsBalancer) GetRouterHost(ctx core.Context, routerHosts []*RouterHost) (*RouterHost, error) {
+func (b *LeastConnectionsBalancer) GetRouterHost(ctx core.Context, routerHosts []*core.RouterHost) (*core.RouterHost, error) {
 	if len(routerHosts) == 0 {
 		return nil, errors.New("no available router hosts found")
 	}

@@ -4,13 +4,13 @@ import (
 	"os"
 
 	"github.com/ReToCode/openshift-cross-cluster-loadbalancer/balancer"
-	log "github.com/sirupsen/logrus"
-	"github.com/ReToCode/openshift-cross-cluster-loadbalancer/api"
+	"github.com/ReToCode/openshift-cross-cluster-loadbalancer/balancer/api"
+	"github.com/sirupsen/logrus"
 )
 
 func init() {
-	log.SetOutput(os.Stdout)
-	log.SetLevel(log.DebugLevel)
+	logrus.SetOutput(os.Stdout)
+	logrus.SetLevel(logrus.InfoLevel)
 }
 
 func main() {

@@ -6,7 +6,7 @@ import (
 
 	"time"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -71,7 +71,7 @@ func Proxy(to BufferedConn, from BufferedConn, timeout time.Duration) <-chan Rea
 		err := copyData(to, from, stats)
 		e, ok := err.(*net.OpError)
 		if err != nil && (!ok || e.Err.Error() != "use of closed network connection") {
-			log.Warn(err)
+			logrus.Warn(err)
 		}
 
 		to.Close()

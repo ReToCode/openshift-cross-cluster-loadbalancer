@@ -2,11 +2,11 @@ package core
 
 import (
 	"bytes"
+	"crypto/tls"
 	"io"
 	"net"
 	"sync"
 	"time"
-	"crypto/tls"
 )
 
 const MAX_HEADER_SIZE = 16385

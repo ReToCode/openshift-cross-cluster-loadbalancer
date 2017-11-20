@@ -1,16 +1,15 @@
 package balancer
 
 import (
+	"time"
+
+	"sort"
+
 	"github.com/ReToCode/openshift-cross-cluster-loadbalancer/balancer/core"
-	log "github.com/sirupsen/logrus"
-	"github.com/ReToCode/openshift-cross-cluster-loadbalancer/api/models"
+	"github.com/ReToCode/openshift-cross-cluster-loadbalancer/balancer/strategy"
+	"github.com/sirupsen/logrus"
+	"sync"
 )
-
-type Stats struct {
-	HealthyHostCount int
-
-	CurrentConnections chan uint
-}
 
 type StatsOperationAction int
 
@@ -25,65 +24,80 @@ type StatsOperation struct {
 	action       StatsOperationAction
 }
 
+type RouterHostOperation struct {
+	isAdd bool
+	rh    *core.RouterHost
+}
+
 type ElectRequest struct {
 	Context  core.Context
-	Response chan RouterHost
+	Response chan core.RouterHost
 	Err      chan error
 }
 
 type Scheduler struct {
-	routerHosts map[string]*RouterHost
+	routerHosts map[string]*core.RouterHost
+	balancer    strategy.LeastConnectionsBalancer
+	stats       core.GlobalStats
+	statsMux    sync.Mutex
 
-	healthCheckResults chan HealthCheckResult
-
-	balancer LeastConnectionsBalancer
-	stats    Stats
-
-	operations chan StatsOperation
-	elect      chan ElectRequest
-	stop       chan bool
-	ToUi       chan models.BaseModel
+	healthCheckResults chan core.HealthCheckResult
+	hostOperation      chan RouterHostOperation
+	statsOperation     chan StatsOperation
+	elect              chan ElectRequest
+	connections        chan uint
+	stop               chan bool
 }
 
 func NewScheduler() *Scheduler {
 	return &Scheduler{
-		healthCheckResults: make(chan HealthCheckResult),
-		routerHosts:        make(map[string]*RouterHost),
-		balancer:           LeastConnectionsBalancer{},
-		stats: Stats{
-			HealthyHostCount:   0,
-			CurrentConnections: make(chan uint),
+		routerHosts: make(map[string]*core.RouterHost),
+		balancer:    strategy.LeastConnectionsBalancer{},
+		stats: core.GlobalStats{
+			Mutation:           "uiStats",
+			CurrentConnections: 0,
+			HostList:           []core.RouterHost{},
 		},
-		operations: make(chan StatsOperation),
-		elect:      make(chan ElectRequest),
-		stop:       make(chan bool),
-		ToUi:       make(chan models.BaseModel),
+		healthCheckResults: make(chan core.HealthCheckResult),
+		hostOperation:      make(chan RouterHostOperation),
+		statsOperation:     make(chan StatsOperation),
+		elect:              make(chan ElectRequest),
+		connections:        make(chan uint),
+		stop:               make(chan bool),
 	}
 }
 
 func (s *Scheduler) Start() {
-	log.Info("Starting scheduler")
+	statsPushTicker := time.NewTicker(2 * time.Second)
 
 	go func() {
 		for {
 			select {
-			case connections := <-s.stats.CurrentConnections:
-				log.Infof("Current connections: %v", connections)
+			case conn := <-s.connections:
+				s.stats.CurrentConnections = conn
+
+			case <-statsPushTicker.C:
+				s.updateRouterHostList()
+
+			case op := <-s.hostOperation:
+				s.handleRouterHostOperation(op)
 
 			case checkResult := <-s.healthCheckResults:
 				s.handleHealthCheckResults(checkResult)
 
-			case op := <-s.operations:
-				s.updateStats(op)
+			case op := <-s.statsOperation:
+				s.handleRouterHostStats(op)
 
 			case electReq := <-s.elect:
 				s.handleRouterHostElect(electReq)
 
 			case <-s.stop:
-				log.Info("Stopping scheduler")
+				logrus.Info("Stopping scheduler")
+
 				for _, rh := range s.routerHosts {
 					rh.Stop()
 				}
+
 				return
 			}
 		}
@@ -95,30 +109,33 @@ func (s *Scheduler) Stop() {
 }
 
 func (s *Scheduler) AddRouterHost(ip string, routes []string) {
-	newHost := NewRouterHost(ip, routes, s.healthCheckResults)
+	newHost := core.NewRouterHost(ip, routes, s.healthCheckResults)
 
-	s.routerHosts[ip] = newHost
+	s.hostOperation <- RouterHostOperation{
+		true, newHost,
+	}
+}
 
-	// Start health checks of router host
-	go newHost.Start()
-
-	log.Infof("New router host was added: %v to scheduler", ip)
+func (s *Scheduler) GetStats() core.GlobalStats {
+	s.statsMux.Lock()
+	defer s.statsMux.Unlock()
+	return s.stats
 }
 
 func (s *Scheduler) IncrementRefused(routerHostIp string) {
-	s.operations <- StatsOperation{routerHostIp, IncrementRefused}
+	s.statsOperation <- StatsOperation{routerHostIp, IncrementRefused}
 }
 
 func (s *Scheduler) IncrementConnection(routerHostIp string) {
-	s.operations <- StatsOperation{routerHostIp, IncrementConnection}
+	s.statsOperation <- StatsOperation{routerHostIp, IncrementConnection}
 }
 
 func (s *Scheduler) DecrementConnection(routerHostIp string) {
-	s.operations <- StatsOperation{routerHostIp, DecrementConnection}
+	s.statsOperation <- StatsOperation{routerHostIp, DecrementConnection}
 }
 
-func (s *Scheduler) ElectRouterHostRequest(ctx core.Context) (*RouterHost, error) {
-	r := ElectRequest{ctx, make(chan RouterHost), make(chan error)}
+func (s *Scheduler) ElectRouterHostRequest(ctx core.Context) (*core.RouterHost, error) {
+	r := ElectRequest{ctx, make(chan core.RouterHost), make(chan error)}
 
 	// Send election request
 	s.elect <- r
@@ -132,10 +149,39 @@ func (s *Scheduler) ElectRouterHostRequest(ctx core.Context) (*RouterHost, error
 	}
 }
 
-func (s *Scheduler) updateStats(op StatsOperation) {
+func (s *Scheduler) handleRouterHostOperation(op RouterHostOperation) {
+	if op.isAdd {
+		s.routerHosts[op.rh.HostIP] = op.rh
+
+		// Start health checks of router host
+		go s.routerHosts[op.rh.HostIP].Start()
+
+		logrus.Infof("New router host was added: %v to scheduler", op.rh.HostIP)
+	} else {
+		logrus.Errorf("Deletion of hosts is not yet possible")
+	}
+
+	s.updateRouterHostList()
+}
+
+func (s *Scheduler) updateRouterHostList() {
+	// Create a sorted list for the UI
+	s.statsMux.Lock()
+	s.stats.HostList = []core.RouterHost{}
+	for _, rh := range s.routerHosts {
+		s.stats.HostList = append(s.stats.HostList, *rh)
+	}
+
+	sort.Slice(s.stats.HostList, func(i, j int) bool {
+		return s.stats.HostList[i].HostIP < s.stats.HostList[j].HostIP
+	})
+	s.statsMux.Unlock()
+}
+
+func (s *Scheduler) handleRouterHostStats(op StatsOperation) {
 	routerHost, ok := s.routerHosts[op.routerHostIp]
 	if !ok {
-		log.Warn("Trying operation ", op.action, " on not tracked router host ip: ", op.routerHostIp)
+		logrus.Warn("Trying operation ", op.action, " on not tracked router host ip: ", op.routerHostIp)
 		return
 	}
 
@@ -148,13 +194,13 @@ func (s *Scheduler) updateStats(op StatsOperation) {
 	case DecrementConnection:
 		routerHost.Stats.ActiveConnections--
 	default:
-		log.Warn("Don't know how to handle action ", op.action)
+		logrus.Warn("Don't know how to handle action ", op.action)
 	}
 }
 
 func (s *Scheduler) handleRouterHostElect(req ElectRequest) {
-	var hosts []*RouterHost
-	var healthyHosts []*RouterHost
+	var hosts []*core.RouterHost
+	var healthyHosts []*core.RouterHost
 
 	for _, rh := range s.routerHosts {
 		// 1. Check if healthy
@@ -175,12 +221,12 @@ func (s *Scheduler) handleRouterHostElect(req ElectRequest) {
 	}
 
 	if req.Context.Hostname != "" && len(hosts) == 0 {
-		log.Warnf("Route %v has no valid target. Balancing to all healthy router hosts", req.Context.Hostname)
+		logrus.Warnf("Route %v has no valid target. Balancing to all healthy router hosts", req.Context.Hostname)
 		hosts = healthyHosts
 	}
 
 	if req.Context.Hostname == "" {
-		log.Warnf("No route name was parsed. Balancing to all healthy router hosts")
+		logrus.Warnf("No route name was parsed. Balancing to all healthy router hosts")
 		hosts = healthyHosts
 	}
 
@@ -194,29 +240,19 @@ func (s *Scheduler) handleRouterHostElect(req ElectRequest) {
 	req.Response <- *rh
 }
 
-func (s *Scheduler) handleHealthCheckResults(res HealthCheckResult) {
-	r := s.routerHosts[res.routerHostIP]
+func (s *Scheduler) handleHealthCheckResults(res core.HealthCheckResult) {
+	r := s.routerHosts[res.RouterHostIP]
 
 	// Healthy > not healthy
-	if r.Stats.Healthy && !res.healthy {
-		s.stats.HealthyHostCount--
-		log.Warningf("Router host %v degraded. Healthy host count: %v", res.routerHostIP, s.stats.HealthyHostCount)
+	if r.Stats.Healthy && !res.Healthy {
+		logrus.Warningf("Router host %v degraded", res.RouterHostIP)
 	}
 
 	// Not healthy > healthy
-	if !r.Stats.Healthy && res.healthy {
-		s.stats.HealthyHostCount++
-		log.Infof("Router host became healthy %v. Healthy host count: %v", res.routerHostIP, s.stats.HealthyHostCount)
-	}
-
-	// Tell the UI about a possible state change
-	if r.Stats.Healthy != res.healthy {
-		s.ToUi <- models.BaseModel{
-			Mutation: models.HOST_LIST,
-			Message:  r,
-		}
+	if !r.Stats.Healthy && res.Healthy {
+		logrus.Infof("Router host became healthy %v", res.RouterHostIP)
 	}
 
 	// Update state
-	r.Stats.Healthy = res.healthy
+	r.Stats.Healthy = res.Healthy
 }

@@ -1,13 +1,19 @@
 package core
 
 import (
-	"net"
 	"bufio"
+	"net"
 )
 
 type Context struct {
 	Hostname string
 	Conn     BufferedConn
+}
+
+type GlobalStats struct {
+	Mutation           string       `json:"mutation"`
+	HostList           []RouterHost `json:"hostList"`
+	CurrentConnections uint         `json:"currentConnections"`
 }
 
 type ReadWriteCount struct {

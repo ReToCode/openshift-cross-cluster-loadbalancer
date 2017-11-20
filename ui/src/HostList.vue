@@ -1,31 +1,26 @@
 <template>
   <section>
-    <h2>Message from Socket {{ hosts }}</h2>
+    <h2>Message from Socket {{ uiStats.currentConnections }}</h2>
     <b-table
-      :data="isEmpty ? [] : tableDataSimple"
+      :data="!hasData ? [] : uiStats.hostList"
       :striped="isStriped"
-      :narrowed="isNarrowed"
-      :loading="isLoading">
+      :narrowed="isNarrowed">
 
       <template slot-scope="props">
-        <b-table-column label="ID" width="40" numeric>
-          {{ props.row.id }}
+        <b-table-column label="Router Host IP">
+          {{ props.row.hostIP }}
         </b-table-column>
-
-        <b-table-column label="First Name">
-          {{ props.row.first_name }}
+        <b-table-column label="Healthy">
+          {{ props.row.stats.healthy }}
         </b-table-column>
-
-        <b-table-column label="Last Name">
-          {{ props.row.last_name }}
+        <b-table-column label="Tot. Conn.">
+          {{ props.row.stats.totalConnections }}
         </b-table-column>
-
-        <b-table-column label="Date" centered>
-          {{ new Date(props.row.date).toLocaleDateString() }}
+        <b-table-column label="Active Conn.">
+          {{ props.row.stats.activeConnections }}
         </b-table-column>
-
-        <b-table-column label="Gender">
-          {{ props.row.gender }}
+        <b-table-column label="Refused Conn.">
+          {{ props.row.stats.refusedConnections }}
         </b-table-column>
       </template>
     </b-table>
@@ -36,24 +31,17 @@
   export default {
     name: 'hostList',
     computed: {
-      hosts() {
-        return this.$store.state.hostList;
+      uiStats() {
+        return this.$store.state.uiStats;
+      },
+      hasData() {
+        const stats = this.$store.state.uiStats;
+        return stats && stats.hostList && stats.hostList.length;
       }
     },
     data() {
-      const tableDataSimple = [
-        {'id': 1, 'first_name': 'Jesse', 'last_name': 'Simmons', 'date': '2016-10-15 13:43:27', 'gender': 'Male'},
-        {'id': 2, 'first_name': 'John', 'last_name': 'Jacobs', 'date': '2016-12-15 06:00:53', 'gender': 'Male'},
-        {'id': 3, 'first_name': 'Tina', 'last_name': 'Gilbert', 'date': '2016-04-26 06:26:28', 'gender': 'Female'},
-        {'id': 4, 'first_name': 'Clarence', 'last_name': 'Flores', 'date': '2016-04-10 10:28:46', 'gender': 'Male'},
-        {'id': 5, 'first_name': 'Anne', 'last_name': 'Lee', 'date': '2016-12-06 14:38:38', 'gender': 'Female'}
-      ];
-
       return {
-        tableDataSimple,
-        isLoading: false,
         isStriped: true,
-        isEmpty: false,
         isNarrowed: true
       }
     }

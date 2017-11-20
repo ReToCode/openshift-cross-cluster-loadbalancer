@@ -1,15 +1,15 @@
-package balancer
+package core
 
 import (
 	"net"
 	"time"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 type HealthCheckResult struct {
-	routerHostIP string
-	healthy      bool
+	RouterHostIP string
+	Healthy      bool
 }
 
 type HealthCheck struct {
@@ -30,7 +30,7 @@ func NewHealthCheck(ip string, status chan HealthCheckResult, checkInterval time
 }
 
 func (hc *HealthCheck) Start() {
-	log.Infof("Starting health checks for router host %v", hc.routerHostIP)
+	logrus.Infof("Starting health checks for router host %v", hc.routerHostIP)
 
 	hc.ticker = *time.NewTicker(hc.interval)
 
@@ -41,7 +41,7 @@ func (hc *HealthCheck) Start() {
 				go checkRouterHost(hc.routerHostIP, hc.status)
 
 			case <-hc.stop:
-				log.Debugf("Got stop signal for health check ticker.")
+				logrus.Debugf("Got stop signal for health check ticker.")
 				hc.ticker.Stop()
 				return
 			}
@@ -52,7 +52,7 @@ func (hc *HealthCheck) Start() {
 }
 
 func (hc *HealthCheck) Stop() {
-	log.Infof("Stopping health checks for router host %v", hc.routerHostIP)
+	logrus.Infof("Stopping health checks for router host %v", hc.routerHostIP)
 	hc.stop <- true
 }
 
@@ -69,7 +69,7 @@ func checkRouterHost(routerHostIp string, result chan<- HealthCheckResult) {
 
 	// Tell the balancer about the health result
 	result <- HealthCheckResult{
-		routerHostIP: routerHostIp,
-		healthy:      healthy,
+		RouterHostIP: routerHostIp,
+		Healthy:      healthy,
 	}
 }
