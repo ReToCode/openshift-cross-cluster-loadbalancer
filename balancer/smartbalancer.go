@@ -7,6 +7,7 @@ import (
 
 	"github.com/ReToCode/openshift-cross-cluster-loadbalancer/balancer/core"
 	"github.com/sirupsen/logrus"
+	"strconv"
 )
 
 type BalancerConfig struct {
@@ -170,6 +171,7 @@ func (b *Balancer) wrapHttpsConnection(conn net.Conn) {
 
 	b.connect <- &core.Context{
 		Hostname: hostname,
+		HTTPS:    true,
 		Conn:     core.NewBufferedConn(sniConn),
 	}
 }
@@ -182,6 +184,7 @@ func (b *Balancer) wrapHttpConnection(conn net.Conn) {
 
 	b.connect <- &core.Context{
 		Hostname: hostname,
+		HTTPS:    false,
 		Conn:     core.NewBufferedConn(bufConn),
 	}
 }
@@ -199,18 +202,25 @@ func (b *Balancer) handleConnection(ctx *core.Context) {
 		return
 	}
 
-	logrus.Debugf("Selected target router host: %v", routerHost.HostIP)
+	var port int
+	if ctx.HTTPS {
+		port = routerHost.HttpsPort
+	} else {
+		port = routerHost.HttpPort
+	}
+
+	logrus.Debugf("Selected target router host: %v in port %v", routerHost.Key(), port)
 
 	// Connect to router host
-	routerHostConn, err := net.DialTimeout("tcp", routerHost.HostIP, b.cfg.routerHostTimeout)
+	routerHostConn, err := net.DialTimeout("tcp", routerHost.HostIP + ":" + strconv.Itoa(port), b.cfg.routerHostTimeout)
 	bufferedRouterHostConn := core.NewBufferedConn(routerHostConn)
 	if err != nil {
-		b.Scheduler.IncrementRefused(routerHost.HostIP)
-		logrus.Errorf("Error connecting to router host: %v. Err: %v", routerHost.HostIP, err)
+		b.Scheduler.IncrementRefused(routerHost.Key())
+		logrus.Errorf("Error connecting to router host: %v. Err: %v", routerHost.Key(), err)
 		return
 	}
-	b.Scheduler.IncrementConnection(routerHost.HostIP)
-	defer b.Scheduler.DecrementConnection(routerHost.HostIP)
+	b.Scheduler.IncrementConnection(routerHost.Key())
+	defer b.Scheduler.DecrementConnection(routerHost.Key())
 
 	// Proxy the request & response bytes
 	cs := core.Proxy(clientConn, bufferedRouterHostConn, b.cfg.proxyTimeout)

@@ -5,32 +5,41 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	"strconv"
 )
 
 type HealthCheckResult struct {
-	RouterHostIP string
-	Healthy      bool
+	RouterHostKey string
+	Healthy       bool
 }
 
 type HealthCheck struct {
-	interval     time.Duration
-	ticker       time.Ticker
-	stop         chan bool
-	status       chan HealthCheckResult
-	routerHostIP string
+	routerHostKey string
+	routerHostIP  string
+	checkPort     int
+
+	interval time.Duration
+	ticker   time.Ticker
+	stop     chan bool
+	status   chan HealthCheckResult
 }
 
-func NewHealthCheck(ip string, status chan HealthCheckResult, checkInterval time.Duration) *HealthCheck {
+func NewHealthCheck(key string, ip string, checkPort int,
+	status chan HealthCheckResult, checkInterval time.Duration) *HealthCheck {
+
 	return &HealthCheck{
-		routerHostIP: ip,
-		stop:         make(chan bool),
-		status:       status,
-		interval:     checkInterval,
+		routerHostKey: key,
+		routerHostIP:  ip,
+		checkPort:     checkPort,
+
+		stop:     make(chan bool),
+		status:   status,
+		interval: checkInterval,
 	}
 }
 
 func (hc *HealthCheck) Start() {
-	logrus.Infof("Starting health checks for router host %v", hc.routerHostIP)
+	logrus.Infof("Starting health checks for router host %v:%v", hc.routerHostIP, hc.checkPort)
 
 	hc.ticker = *time.NewTicker(hc.interval)
 
@@ -38,7 +47,7 @@ func (hc *HealthCheck) Start() {
 		for {
 			select {
 			case <-hc.ticker.C:
-				go checkRouterHost(hc.routerHostIP, hc.status)
+				go checkRouterHost(hc)
 
 			case <-hc.stop:
 				logrus.Debugf("Got stop signal for health check ticker.")
@@ -56,8 +65,8 @@ func (hc *HealthCheck) Stop() {
 	hc.stop <- true
 }
 
-func checkRouterHost(routerHostIp string, result chan<- HealthCheckResult) {
-	conn, err := net.DialTimeout("tcp", routerHostIp, 5*time.Second)
+func checkRouterHost(hc *HealthCheck) {
+	conn, err := net.DialTimeout("tcp", hc.routerHostIP+":"+strconv.Itoa(hc.checkPort), 5*time.Second)
 
 	var healthy bool
 	if err != nil {
@@ -68,8 +77,8 @@ func checkRouterHost(routerHostIp string, result chan<- HealthCheckResult) {
 	}
 
 	// Tell the balancer about the health result
-	result <- HealthCheckResult{
-		RouterHostIP: routerHostIp,
-		Healthy:      healthy,
+	hc.status <- HealthCheckResult{
+		RouterHostKey: hc.routerHostKey,
+		Healthy:       healthy,
 	}
 }

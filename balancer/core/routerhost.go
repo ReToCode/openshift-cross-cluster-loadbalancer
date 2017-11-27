@@ -1,6 +1,9 @@
 package core
 
-import "time"
+import (
+	"time"
+	"strconv"
+)
 
 type RouterHostStats struct {
 	Healthy            bool   `json:"healthy"`
@@ -10,20 +13,33 @@ type RouterHostStats struct {
 }
 
 type RouterHost struct {
-	Stats  RouterHostStats `json:"stats"`
-	HostIP string          `json:"hostIP"`
-	Routes []string        `json:"-"`
+	HostIP    string          `json:"hostIP"`
+	HttpPort  int             `json:"httpPort"`
+	HttpsPort int             `json:"httpsPort"`
+	Stats     RouterHostStats `json:"stats"`
+	Routes    []string        `json:"-"`
 
 	healthCheck *HealthCheck
 }
 
-func NewRouterHost(ip string, routes []string, s chan HealthCheckResult) *RouterHost {
-	return &RouterHost{
-		HostIP:      ip,
-		Routes:      routes,
-		Stats:       RouterHostStats{},
-		healthCheck: NewHealthCheck(ip, s, 1*time.Second),
+
+
+func NewRouterHost(ip string, httpPort int, httpsPort int, routes []string, s chan HealthCheckResult) *RouterHost {
+	rh := &RouterHost{
+		HostIP:    ip,
+		HttpPort:  httpPort,
+		HttpsPort: httpsPort,
+		Stats:     RouterHostStats{},
+		Routes:    routes,
 	}
+
+	rh.healthCheck =  NewHealthCheck(rh.Key(), rh.HostIP, rh.HttpPort, s, 1*time.Second)
+	return rh
+}
+
+
+func (rh *RouterHost) Key() string {
+	return rh.HostIP + "-" + strconv.Itoa(rh.HttpPort) + "/" + strconv.Itoa(rh.HttpsPort)
 }
 
 func (rh *RouterHost) Start() {

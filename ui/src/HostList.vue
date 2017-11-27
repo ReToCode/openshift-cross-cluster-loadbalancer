@@ -8,7 +8,7 @@
 
       <template slot-scope="props">
         <b-table-column label="Router Host IP">
-          {{ props.row.hostIP }}
+          {{ props.row.hostIP }} - {{ props.row.httpPort }}/{{ props.row.httpsPort }}
         </b-table-column>
         <b-table-column label="Healthy">
           {{ props.row.stats.healthy }}

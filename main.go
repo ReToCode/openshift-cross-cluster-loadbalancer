@@ -23,11 +23,11 @@ func main() {
 
 	// Add local host as router host
 	// Http backends
-	b.Scheduler.AddRouterHost("localhost:8001", []string{"localhost:8001", "no.ch"})
-	b.Scheduler.AddRouterHost("localhost:8002", []string{"localhost:8002", "no.ch"})
+	b.Scheduler.AddRouterHost("localhost", 8180, 8143, []string{"no.ch"})
+	b.Scheduler.AddRouterHost("localhost", 8280, 8243, []string{"no.ch"})
 
 	// Https Backend
-	b.Scheduler.AddRouterHost("localhost:8003", []string{"localhost:8003", "tls.ch"})
+	b.Scheduler.AddRouterHost("localhost", 8380, 8343, []string{"tls.ch"})
 
 	// Sleep 4 ever
 	select {}

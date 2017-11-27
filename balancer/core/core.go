@@ -6,6 +6,7 @@ import (
 )
 
 type Context struct {
+	HTTPS    bool
 	Hostname string
 	Conn     BufferedConn
 }

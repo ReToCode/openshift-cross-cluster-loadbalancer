@@ -19,8 +19,8 @@ const (
 )
 
 type StatsOperation struct {
-	routerHostIp string
-	action       StatsOperationAction
+	routerHostKey string
+	action        StatsOperationAction
 }
 
 type RouterHostOperation struct {
@@ -105,24 +105,24 @@ func (s *Scheduler) Stop() {
 	s.stop <- true
 }
 
-func (s *Scheduler) AddRouterHost(ip string, routes []string) {
-	newHost := core.NewRouterHost(ip, routes, s.healthCheckResults)
+func (s *Scheduler) AddRouterHost(ip string, httpPort int, httpsPort int, routes []string) {
+	newHost := core.NewRouterHost(ip, httpPort, httpsPort, routes, s.healthCheckResults)
 
 	s.hostOperation <- RouterHostOperation{
 		true, newHost,
 	}
 }
 
-func (s *Scheduler) IncrementRefused(routerHostIp string) {
-	s.statsOperation <- StatsOperation{routerHostIp, IncrementRefused}
+func (s *Scheduler) IncrementRefused(routerHostKey string) {
+	s.statsOperation <- StatsOperation{routerHostKey, IncrementRefused}
 }
 
-func (s *Scheduler) IncrementConnection(routerHostIp string) {
-	s.statsOperation <- StatsOperation{routerHostIp, IncrementConnection}
+func (s *Scheduler) IncrementConnection(routerHostKey string) {
+	s.statsOperation <- StatsOperation{routerHostKey, IncrementConnection}
 }
 
-func (s *Scheduler) DecrementConnection(routerHostIp string) {
-	s.statsOperation <- StatsOperation{routerHostIp, DecrementConnection}
+func (s *Scheduler) DecrementConnection(routerHostKey string) {
+	s.statsOperation <- StatsOperation{routerHostKey, DecrementConnection}
 }
 
 func (s *Scheduler) ElectRouterHostRequest(ctx core.Context) (*core.RouterHost, error) {
@@ -142,12 +142,12 @@ func (s *Scheduler) ElectRouterHostRequest(ctx core.Context) (*core.RouterHost, 
 
 func (s *Scheduler) handleRouterHostOperation(op RouterHostOperation) {
 	if op.isAdd {
-		s.routerHosts[op.rh.HostIP] = op.rh
+		s.routerHosts[op.rh.Key()] = op.rh
 
 		// Start health checks of router host
-		go s.routerHosts[op.rh.HostIP].Start()
+		go s.routerHosts[op.rh.Key()].Start()
 
-		logrus.Infof("New router host was added: %v to scheduler", op.rh.HostIP)
+		logrus.Infof("New router host was added: %v to scheduler", op.rh.Key())
 	} else {
 		logrus.Errorf("Deletion of hosts is not yet possible")
 	}
@@ -163,7 +163,7 @@ func (s *Scheduler) updateStats() {
 	}
 
 	sort.Slice(hostList, func(i, j int) bool {
-		return hostList[i].HostIP < hostList[j].HostIP
+		return hostList[i].Key() < hostList[j].Key()
 	})
 
 	// Tell the UI about it
@@ -175,9 +175,9 @@ func (s *Scheduler) updateStats() {
 }
 
 func (s *Scheduler) handleRouterHostStats(op StatsOperation) {
-	routerHost, ok := s.routerHosts[op.routerHostIp]
+	routerHost, ok := s.routerHosts[op.routerHostKey]
 	if !ok {
-		logrus.Warn("Trying operation ", op.action, " on not tracked router host ip: ", op.routerHostIp)
+		logrus.Warn("Trying operation ", op.action, " on not tracked router host ip: ", op.routerHostKey)
 		return
 	}
 
@@ -237,16 +237,16 @@ func (s *Scheduler) handleRouterHostElect(req ElectRequest) {
 }
 
 func (s *Scheduler) handleHealthCheckResults(res core.HealthCheckResult) {
-	r := s.routerHosts[res.RouterHostIP]
+	r := s.routerHosts[res.RouterHostKey]
 
 	// Healthy > not healthy
 	if r.Stats.Healthy && !res.Healthy {
-		logrus.Warningf("Router host %v degraded", res.RouterHostIP)
+		logrus.Warningf("Router host %v degraded", res.RouterHostKey)
 	}
 
 	// Not healthy > healthy
 	if !r.Stats.Healthy && res.Healthy {
-		logrus.Infof("Router host became healthy %v", res.RouterHostIP)
+		logrus.Infof("Router host became healthy %v", res.RouterHostKey)
 	}
 
 	// Update state
