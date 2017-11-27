@@ -7,6 +7,7 @@ import (
 	"net"
 	"sync"
 	"time"
+	"strings"
 )
 
 const MAX_HEADER_SIZE = 16385
@@ -103,5 +104,5 @@ func extractHostname(buf []byte) string {
 	conn := tls.Server(newBufferConn(buf), &tls.Config{})
 	defer conn.Close()
 	conn.Handshake()
-	return conn.ConnectionState().ServerName
+	return strings.TrimSpace(conn.ConnectionState().ServerName)
 }
