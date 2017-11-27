@@ -8,7 +8,6 @@ import (
 	"github.com/ReToCode/openshift-cross-cluster-loadbalancer/balancer/core"
 	"github.com/ReToCode/openshift-cross-cluster-loadbalancer/balancer/strategy"
 	"github.com/sirupsen/logrus"
-	"sync"
 )
 
 type StatsOperationAction int
@@ -36,11 +35,11 @@ type ElectRequest struct {
 }
 
 type Scheduler struct {
-	routerHosts map[string]*core.RouterHost
-	balancer    strategy.LeastConnectionsBalancer
-	stats       core.GlobalStats
-	statsMux    sync.Mutex
+	routerHosts        map[string]*core.RouterHost
+	balancer           strategy.LeastConnectionsBalancer
+	currentConnections uint
 
+	StatsUpdate        chan core.GlobalStats
 	healthCheckResults chan core.HealthCheckResult
 	hostOperation      chan RouterHostOperation
 	statsOperation     chan StatsOperation
@@ -51,13 +50,11 @@ type Scheduler struct {
 
 func NewScheduler() *Scheduler {
 	return &Scheduler{
-		routerHosts: make(map[string]*core.RouterHost),
-		balancer:    strategy.LeastConnectionsBalancer{},
-		stats: core.GlobalStats{
-			Mutation:           "uiStats",
-			CurrentConnections: 0,
-			HostList:           []core.RouterHost{},
-		},
+		routerHosts:        make(map[string]*core.RouterHost),
+		balancer:           strategy.LeastConnectionsBalancer{},
+		currentConnections: 0,
+
+		StatsUpdate:        make(chan core.GlobalStats),
 		healthCheckResults: make(chan core.HealthCheckResult),
 		hostOperation:      make(chan RouterHostOperation),
 		statsOperation:     make(chan StatsOperation),
@@ -74,10 +71,10 @@ func (s *Scheduler) Start() {
 		for {
 			select {
 			case conn := <-s.connections:
-				s.stats.CurrentConnections = conn
+				s.currentConnections = conn
 
 			case <-statsPushTicker.C:
-				s.updateRouterHostList()
+				s.updateStats()
 
 			case op := <-s.hostOperation:
 				s.handleRouterHostOperation(op)
@@ -114,12 +111,6 @@ func (s *Scheduler) AddRouterHost(ip string, routes []string) {
 	s.hostOperation <- RouterHostOperation{
 		true, newHost,
 	}
-}
-
-func (s *Scheduler) GetStats() core.GlobalStats {
-	s.statsMux.Lock()
-	defer s.statsMux.Unlock()
-	return s.stats
 }
 
 func (s *Scheduler) IncrementRefused(routerHostIp string) {
@@ -161,21 +152,26 @@ func (s *Scheduler) handleRouterHostOperation(op RouterHostOperation) {
 		logrus.Errorf("Deletion of hosts is not yet possible")
 	}
 
-	s.updateRouterHostList()
+	s.updateStats()
 }
 
-func (s *Scheduler) updateRouterHostList() {
+func (s *Scheduler) updateStats() {
 	// Create a sorted list for the UI
-	s.statsMux.Lock()
-	s.stats.HostList = []core.RouterHost{}
+	hostList := []core.RouterHost{}
 	for _, rh := range s.routerHosts {
-		s.stats.HostList = append(s.stats.HostList, *rh)
+		hostList = append(hostList, *rh)
 	}
 
-	sort.Slice(s.stats.HostList, func(i, j int) bool {
-		return s.stats.HostList[i].HostIP < s.stats.HostList[j].HostIP
+	sort.Slice(hostList, func(i, j int) bool {
+		return hostList[i].HostIP < hostList[j].HostIP
 	})
-	s.statsMux.Unlock()
+
+	// Tell the UI about it
+	s.StatsUpdate <- core.GlobalStats{
+		Mutation: "uiStats",
+		HostList: hostList,
+		CurrentConnections: s.currentConnections,
+	}
 }
 
 func (s *Scheduler) handleRouterHostStats(op StatsOperation) {

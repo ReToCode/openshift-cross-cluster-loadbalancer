@@ -9,7 +9,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/sirupsen/logrus"
-	"time"
 )
 
 func init() {
@@ -56,14 +55,12 @@ func onUISocket(w http.ResponseWriter, r *http.Request, b *balancer.Balancer) {
 }
 
 func sendStatisticsToUI(b *balancer.Balancer) {
-	toUiTicker := time.NewTicker(2 * time.Second)
-
 	for {
 		select {
-		case <- toUiTicker.C:
+		case stats := <-b.Scheduler.StatsUpdate:
 			mux.Lock()
 			if uiConnection != nil {
-				err := uiConnection.WriteJSON(b.Scheduler.GetStats())
+				err := uiConnection.WriteJSON(stats)
 				if err != nil {
 					logrus.Errorf("connection to UI was closed, will not send updates now", err)
 					uiConnection = nil

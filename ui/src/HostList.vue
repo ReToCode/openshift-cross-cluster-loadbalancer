@@ -1,6 +1,6 @@
 <template>
-  <section>
-    <h2>Message from Socket {{ uiStats.currentConnections }}</h2>
+  <section class="content">
+    <h1>List of connected OpenShift router hosts</h1>
     <b-table
       :data="!hasData ? [] : uiStats.hostList"
       :striped="isStriped"

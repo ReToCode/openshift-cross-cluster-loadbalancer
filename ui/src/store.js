@@ -13,7 +13,7 @@ export default new Vuex.Store({
   },
   mutations: {
     SOCKET_ONOPEN(state, event) {
-      state.socket.isConnected = true
+      state.socket.isConnected = true;
     },
     SOCKET_ONCLOSE(state, event) {
       state.socket.isConnected = false
