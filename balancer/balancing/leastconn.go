@@ -1,14 +1,12 @@
-package strategy
+package balancing
 
 import (
-	"errors"
+"errors"
 
-	"github.com/ReToCode/openshift-cross-cluster-loadbalancer/balancer/core"
+"github.com/ReToCode/openshift-cross-cluster-loadbalancer/balancer/core"
 )
 
-type LeastConnectionsBalancer struct{}
-
-func (b *LeastConnectionsBalancer) GetRouterHost(ctx core.Context, routerHosts []*core.RouterHost) (*core.RouterHost, error) {
+func getRouterHostWithLeastConn(routerHosts []*core.RouterHost) (*core.RouterHost, error) {
 	if len(routerHosts) == 0 {
 		return nil, errors.New("no available router hosts found")
 	}

@@ -10,6 +10,9 @@
         <b-table-column label="Router Host IP">
           {{ props.row.hostIP }} - {{ props.row.httpPort }}/{{ props.row.httpsPort }}
         </b-table-column>
+        <b-table-column label="OSE Cluster">
+          {{ props.row.clusterKey }}
+        </b-table-column>
         <b-table-column label="Healthy">
           {{ props.row.stats.healthy }}
         </b-table-column>

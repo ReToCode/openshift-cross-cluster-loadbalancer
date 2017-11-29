@@ -212,15 +212,15 @@ func (b *Balancer) handleConnection(ctx *core.Context) {
 	logrus.Debugf("Selected target router host: %v in port %v", routerHost.Key(), port)
 
 	// Connect to router host
-	routerHostConn, err := net.DialTimeout("tcp", routerHost.HostIP + ":" + strconv.Itoa(port), b.cfg.routerHostTimeout)
+	routerHostConn, err := net.DialTimeout("tcp", routerHost.HostIP+":"+strconv.Itoa(port), b.cfg.routerHostTimeout)
 	bufferedRouterHostConn := core.NewBufferedConn(routerHostConn)
 	if err != nil {
-		b.Scheduler.IncrementRefused(routerHost.Key())
+		b.Scheduler.UpdateRouterStats(routerHost.ClusterKey, routerHost.Key(), IncrementRefused)
 		logrus.Errorf("Error connecting to router host: %v. Err: %v", routerHost.Key(), err)
 		return
 	}
-	b.Scheduler.IncrementConnection(routerHost.Key())
-	defer b.Scheduler.DecrementConnection(routerHost.Key())
+	b.Scheduler.UpdateRouterStats(routerHost.ClusterKey, routerHost.Key(), IncrementConnection)
+	defer b.Scheduler.UpdateRouterStats(routerHost.ClusterKey, routerHost.Key(), DecrementConnection)
 
 	// Proxy the request & response bytes
 	cs := core.Proxy(clientConn, bufferedRouterHostConn, b.cfg.proxyTimeout)

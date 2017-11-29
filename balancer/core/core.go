@@ -11,6 +11,11 @@ type Context struct {
 	Conn     BufferedConn
 }
 
+type RouterHostIdentifier struct {
+	ClusterKey    string
+	RouterHostKey string
+}
+
 type GlobalStats struct {
 	Mutation           string       `json:"mutation"`
 	HostList           []RouterHost `json:"hostList"`

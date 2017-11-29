@@ -13,30 +13,27 @@ type RouterHostStats struct {
 }
 
 type RouterHost struct {
-	HostIP    string          `json:"hostIP"`
-	HttpPort  int             `json:"httpPort"`
-	HttpsPort int             `json:"httpsPort"`
-	Stats     RouterHostStats `json:"stats"`
-	Routes    []string        `json:"-"`
+	ClusterKey string          `json:"clusterKey"`
+	HostIP     string          `json:"hostIP"`
+	HttpPort   int             `json:"httpPort"`
+	HttpsPort  int             `json:"httpsPort"`
+	Stats      RouterHostStats `json:"stats"`
 
 	healthCheck *HealthCheck
 }
 
-
-
-func NewRouterHost(ip string, httpPort int, httpsPort int, routes []string, s chan HealthCheckResult) *RouterHost {
+func NewRouterHost(ip string, httpPort int, httpsPort int, s chan HealthCheckResult, clusterKey string) *RouterHost {
 	rh := &RouterHost{
-		HostIP:    ip,
-		HttpPort:  httpPort,
-		HttpsPort: httpsPort,
-		Stats:     RouterHostStats{},
-		Routes:    routes,
+		ClusterKey: clusterKey,
+		HostIP:     ip,
+		HttpPort:   httpPort,
+		HttpsPort:  httpsPort,
+		Stats:      RouterHostStats{},
 	}
 
-	rh.healthCheck =  NewHealthCheck(rh.Key(), rh.HostIP, rh.HttpPort, s, 1*time.Second)
+	rh.healthCheck = NewHealthCheck(rh, rh.HttpPort, s, 1*time.Second)
 	return rh
 }
-
 
 func (rh *RouterHost) Key() string {
 	return rh.HostIP + "-" + strconv.Itoa(rh.HttpPort) + "/" + strconv.Itoa(rh.HttpsPort)

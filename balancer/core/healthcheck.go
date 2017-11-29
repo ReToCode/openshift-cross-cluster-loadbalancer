@@ -9,14 +9,13 @@ import (
 )
 
 type HealthCheckResult struct {
-	RouterHostKey string
-	Healthy       bool
+	RouterHost *RouterHost
+	Healthy    bool
 }
 
 type HealthCheck struct {
-	routerHostKey string
-	routerHostIP  string
-	checkPort     int
+	routerHost *RouterHost
+	checkPort  int
 
 	interval time.Duration
 	ticker   time.Ticker
@@ -24,13 +23,12 @@ type HealthCheck struct {
 	status   chan HealthCheckResult
 }
 
-func NewHealthCheck(key string, ip string, checkPort int,
+func NewHealthCheck(routerHost *RouterHost, checkPort int,
 	status chan HealthCheckResult, checkInterval time.Duration) *HealthCheck {
 
 	return &HealthCheck{
-		routerHostKey: key,
-		routerHostIP:  ip,
-		checkPort:     checkPort,
+		routerHost: routerHost,
+		checkPort:  checkPort,
 
 		stop:     make(chan bool),
 		status:   status,
@@ -39,7 +37,7 @@ func NewHealthCheck(key string, ip string, checkPort int,
 }
 
 func (hc *HealthCheck) Start() {
-	logrus.Infof("Starting health checks for router host %v:%v", hc.routerHostIP, hc.checkPort)
+	logrus.Infof("Starting health checks for router host %v:%v", hc.routerHost.HostIP, hc.checkPort)
 
 	hc.ticker = *time.NewTicker(hc.interval)
 
@@ -61,12 +59,12 @@ func (hc *HealthCheck) Start() {
 }
 
 func (hc *HealthCheck) Stop() {
-	logrus.Infof("Stopping health checks for router host %v", hc.routerHostIP)
+	logrus.Infof("Stopping health checks for router host %v", hc.routerHost.HostIP)
 	hc.stop <- true
 }
 
 func checkRouterHost(hc *HealthCheck) {
-	conn, err := net.DialTimeout("tcp", hc.routerHostIP+":"+strconv.Itoa(hc.checkPort), 5*time.Second)
+	conn, err := net.DialTimeout("tcp", hc.routerHost.HostIP+":"+strconv.Itoa(hc.checkPort), 5*time.Second)
 
 	var healthy bool
 	if err != nil {
@@ -78,7 +76,7 @@ func checkRouterHost(hc *HealthCheck) {
 
 	// Tell the balancer about the health result
 	hc.status <- HealthCheckResult{
-		RouterHostKey: hc.routerHostKey,
-		Healthy:       healthy,
+		RouterHost: hc.routerHost,
+		Healthy:    healthy,
 	}
 }
