@@ -23,7 +23,7 @@
           datasets: [
             {
               label: `Total Conn: ${this.host.clusterKey}-${this.host.hostIP}`,
-              backgroundColor: '#e3a108',
+              backgroundColor: 'rgba(226, 161, 8, 0.7)',
               data: this.host.stats.map(s => s.totalConnections)
             }
           ]
@@ -35,7 +35,7 @@
           datasets: [
             {
               label: `Active Conn: ${this.host.clusterKey}-${this.host.hostIP}`,
-              backgroundColor: '#5b9c1c',
+              backgroundColor: 'rgba(91, 156, 28, 0.8)',
               data: this.host.stats.map(s => s.activeConnections)
             }
           ]
@@ -47,7 +47,7 @@
           datasets: [
             {
               label: `Refused Conn: ${this.host.clusterKey}-${this.host.hostIP}`,
-              backgroundColor: '#df171b',
+              backgroundColor: 'rgba(223, 23, 27, 0.5)',
               data: this.host.stats.map(s => s.refusedConnections)
             }
           ]

@@ -14,7 +14,7 @@
           datasets: [
             {
               label: "Overall connections",
-              backgroundColor: '#e3a108',
+              backgroundColor: "rgba(226, 161, 8, 0.7)",
               data: this.$store.state.stats.overallConnections
             }
           ]

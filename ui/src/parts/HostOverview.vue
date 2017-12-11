@@ -33,12 +33,12 @@
           datasets: [
             {
               label: "Healthy hosts",
-              backgroundColor: '#3e6834',
+              backgroundColor: 'rgba(91, 156, 28, 0.8)',
               data: s.healthyHosts.slice(Math.max(s.healthyHosts.length - 5, 1))
             },
             {
               label: "Unhealthy hosts",
-              backgroundColor: '#ed7835',
+              backgroundColor: 'rgba(237, 120, 53, 0.8)',
               data: s.unhealthyHosts.slice(Math.max(s.unhealthyHosts.length - 5, 1))
             }
           ]
