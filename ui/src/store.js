@@ -5,7 +5,7 @@ Vue.use(Vuex);
 
 export default new Vuex.Store({
   state: {
-    uiStats: {},
+    stats: {},
     socket: {
       message: '',
       isConnected: false,
@@ -25,8 +25,8 @@ export default new Vuex.Store({
     SOCKET_ONMESSAGE(state, message) {
       state.socket.message = message.data
     },
-    uiStats(state, uiStats) {
-      state.uiStats = uiStats;
+    stats(state, stats) {
+      state.stats = stats;
     }
   }
 });

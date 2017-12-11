@@ -1,52 +1,59 @@
 <template>
-  <section class="content">
-    <h1>List of connected OpenShift router hosts</h1>
-    <b-table
-      :data="!hasData ? [] : uiStats.hostList"
-      :striped="isStriped"
-      :narrowed="isNarrowed">
-
-      <template slot-scope="props">
-        <b-table-column label="Router Host IP">
-          {{ props.row.hostIP }} - {{ props.row.httpPort }}/{{ props.row.httpsPort }}
-        </b-table-column>
-        <b-table-column label="OSE Cluster">
-          {{ props.row.clusterKey }}
-        </b-table-column>
-        <b-table-column label="Healthy">
-          {{ props.row.stats.healthy }}
-        </b-table-column>
-        <b-table-column label="Tot. Conn.">
-          {{ props.row.stats.totalConnections }}
-        </b-table-column>
-        <b-table-column label="Active Conn.">
-          {{ props.row.stats.activeConnections }}
-        </b-table-column>
-        <b-table-column label="Refused Conn.">
-          {{ props.row.stats.refusedConnections }}
-        </b-table-column>
-      </template>
-    </b-table>
-  </section>
+  <div class="panel">
+    <div class="panel-container">
+      <line-chart :chart-data="connections"
+                  :options="options"></line-chart>
+    </div>
+    <div class="panel-container">{{ stats }}</div>
+  </div>
 </template>
 
 <script>
   export default {
     name: 'hostList',
     computed: {
-      uiStats() {
-        return this.$store.state.uiStats;
+      stats() {
+        return this.$store.state.stats;
       },
-      hasData() {
-        const stats = this.$store.state.uiStats;
-        return stats && stats.hostList && stats.hostList.length;
+      connections() {
+        return {
+          labels: this.$store.state.stats.ticks,
+          datasets: [
+            {
+              label: "Overall connections",
+              backgroundColor: '#e3a108',
+              data: this.$store.state.stats.overallConnections
+            }
+          ]
+        }
       }
     },
     data() {
       return {
-        isStriped: true,
-        isNarrowed: true
+        options: {
+          responsive: true, maintainAspectRatio: false
+        }
       }
     }
   }
 </script>
+
+<style>
+  .panel {
+    display: flex;
+    flex-flow: row wrap;
+  }
+
+  .panel-container {
+    flex: 1 1 auto;
+    min-height: 250px;
+
+    background-color: #1f1d1d;
+    position: relative;
+    border: 1px solid #292929;
+  }
+
+  div {
+    display: block;
+  }
+</style>

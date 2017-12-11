@@ -19,7 +19,7 @@
     name: 'overallStats',
     computed: {
       uiStats() {
-        return this.$store.state.uiStats;
+        return this.$store.state.stats;
       },
       isConnected() {
         return this.$store.state.socket.isConnected;

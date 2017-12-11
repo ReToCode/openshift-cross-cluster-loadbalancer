@@ -18,6 +18,8 @@ const (
 	IncrementRefused
 )
 
+const MAX_TICKS_COUNT = 40
+
 type StatsOperation struct {
 	clusterKey    string
 	routerHostKey string
@@ -45,8 +47,9 @@ type ElectRequest struct {
 // - Health-Check-Results
 // - Election of target router hosts
 type Scheduler struct {
-	clusters           map[string]*core.Cluster
-	currentConnections uint
+	clusters        map[string]*core.Cluster
+	lastConnections uint
+	globalStats     core.GlobalStats
 
 	StatsUpdate        chan core.GlobalStats
 	healthCheckResults chan core.HealthCheckResult
@@ -60,8 +63,9 @@ type Scheduler struct {
 
 func NewScheduler() *Scheduler {
 	return &Scheduler{
-		clusters:           map[string]*core.Cluster{},
-		currentConnections: 0,
+		clusters:        map[string]*core.Cluster{},
+		lastConnections: 0,
+		globalStats:     core.GlobalStats{Mutation: "stats"},
 
 		StatsUpdate:        make(chan core.GlobalStats),
 		healthCheckResults: make(chan core.HealthCheckResult),
@@ -81,10 +85,10 @@ func (s *Scheduler) Start() {
 		for {
 			select {
 			case conn := <-s.connections:
-				s.currentConnections = conn
+				s.lastConnections = conn
 
 			case <-statsPushTicker.C:
-				s.updateStats()
+				s.updateGlobalStats()
 
 			case op := <-s.hostOperation:
 				s.handleRouterHostOperation(op)
@@ -165,7 +169,7 @@ func (s *Scheduler) handleRouterHostOperation(op RouterHostOperation) {
 		logrus.Errorf("Deletion of hosts is not yet possible")
 	}
 
-	s.updateStats()
+	s.updateGlobalStats()
 }
 
 func (s *Scheduler) handleClusterOperation(op ClusterOperation) {
@@ -178,8 +182,8 @@ func (s *Scheduler) handleClusterOperation(op ClusterOperation) {
 	}
 }
 
-func (s *Scheduler) updateStats() {
-	// Create a sorted list for the UI
+func (s *Scheduler) updateGlobalStats() {
+	// Create a sorted list of the router hosts for the UI
 	hostList := []core.RouterHost{}
 	for _, cl := range s.clusters {
 		for _, rh := range cl.RouterHosts {
@@ -191,12 +195,23 @@ func (s *Scheduler) updateStats() {
 		return hostList[i].Key() < hostList[j].Key()
 	})
 
-	// Tell the UI about it
-	s.StatsUpdate <- core.GlobalStats{
-		Mutation:           "uiStats",
-		HostList:           hostList,
-		CurrentConnections: s.currentConnections,
+	s.globalStats.HostList = hostList
+
+	// Create a list of ticks and connections for the UI
+	if len(s.globalStats.Ticks) >= MAX_TICKS_COUNT {
+		s.globalStats.Ticks = s.globalStats.Ticks[1:]
+		s.globalStats.OverallConnections = s.globalStats.OverallConnections[1:]
+	} else {
+		for i :=0; i <= MAX_TICKS_COUNT; i++ {
+			s.globalStats.Ticks = append(s.globalStats.Ticks, "")
+			s.globalStats.OverallConnections = append(s.globalStats.OverallConnections, 0)
+		}
 	}
+	s.globalStats.Ticks = append(s.globalStats.Ticks, "")
+	s.globalStats.OverallConnections = append(s.globalStats.OverallConnections, s.lastConnections)
+
+	// Send the stats to the UI
+	s.StatsUpdate <- s.globalStats
 }
 
 func (s *Scheduler) handleRouterHostStats(op StatsOperation) {

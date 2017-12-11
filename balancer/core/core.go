@@ -19,7 +19,8 @@ type RouterHostIdentifier struct {
 type GlobalStats struct {
 	Mutation           string       `json:"mutation"`
 	HostList           []RouterHost `json:"hostList"`
-	CurrentConnections uint         `json:"currentConnections"`
+	Ticks              []string     `json:"ticks"`
+	OverallConnections []uint       `json:"overallConnections"`
 }
 
 type ReadWriteCount struct {
