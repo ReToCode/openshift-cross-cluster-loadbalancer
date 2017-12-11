@@ -18,8 +18,6 @@ const (
 	IncrementRefused
 )
 
-const MAX_TICKS_COUNT = 40
-
 type StatsOperation struct {
 	clusterKey    string
 	routerHostKey string
@@ -184,9 +182,19 @@ func (s *Scheduler) handleClusterOperation(op ClusterOperation) {
 
 func (s *Scheduler) updateGlobalStats() {
 	// Create a sorted list of the router hosts for the UI
+	unhealthyHosts := 0
+	healthyHosts := 0
 	hostList := []core.RouterHost{}
 	for _, cl := range s.clusters {
 		for _, rh := range cl.RouterHosts {
+			rh.UpdateStats()
+
+			if rh.LastState.Healthy {
+				healthyHosts++
+			} else {
+				unhealthyHosts++
+			}
+
 			hostList = append(hostList, *rh)
 		}
 	}
@@ -198,17 +206,23 @@ func (s *Scheduler) updateGlobalStats() {
 	s.globalStats.HostList = hostList
 
 	// Create a list of ticks and connections for the UI
-	if len(s.globalStats.Ticks) >= MAX_TICKS_COUNT {
+	if len(s.globalStats.Ticks) >= core.MaxTicks {
 		s.globalStats.Ticks = s.globalStats.Ticks[1:]
 		s.globalStats.OverallConnections = s.globalStats.OverallConnections[1:]
+		s.globalStats.HealthyHosts = s.globalStats.HealthyHosts[1:]
+		s.globalStats.UnhealthyHosts = s.globalStats.UnhealthyHosts[1:]
 	} else {
-		for i :=0; i <= MAX_TICKS_COUNT; i++ {
+		for i :=0; i <= core.MaxTicks; i++ {
 			s.globalStats.Ticks = append(s.globalStats.Ticks, "")
 			s.globalStats.OverallConnections = append(s.globalStats.OverallConnections, 0)
+			s.globalStats.HealthyHosts = append(s.globalStats.HealthyHosts, 0)
+			s.globalStats.UnhealthyHosts = append(s.globalStats.UnhealthyHosts, 0)
 		}
 	}
 	s.globalStats.Ticks = append(s.globalStats.Ticks, "")
 	s.globalStats.OverallConnections = append(s.globalStats.OverallConnections, s.lastConnections)
+	s.globalStats.HealthyHosts = append(s.globalStats.HealthyHosts, healthyHosts)
+	s.globalStats.UnhealthyHosts = append(s.globalStats.UnhealthyHosts, unhealthyHosts)
 
 	// Send the stats to the UI
 	s.StatsUpdate <- s.globalStats
@@ -223,12 +237,12 @@ func (s *Scheduler) handleRouterHostStats(op StatsOperation) {
 
 	switch op.action {
 	case IncrementRefused:
-		routerHost.Stats.RefusedConnections++
+		routerHost.LastState.RefusedConnections++
 	case IncrementConnection:
-		routerHost.Stats.ActiveConnections++
-		routerHost.Stats.TotalConnections++
+		routerHost.LastState.ActiveConnections++
+		routerHost.LastState.TotalConnections++
 	case DecrementConnection:
-		routerHost.Stats.ActiveConnections--
+		routerHost.LastState.ActiveConnections--
 	default:
 		logrus.Warn("Don't know how to handle action ", op.action)
 	}
@@ -246,15 +260,15 @@ func (s *Scheduler) handleRouterHostElect(req ElectRequest) {
 
 func (s *Scheduler) handleHealthCheckResults(res core.HealthCheckResult) {
 	// Healthy > not healthy
-	if res.RouterHost.Stats.Healthy && !res.Healthy {
+	if res.RouterHost.LastState.Healthy && !res.Healthy {
 		logrus.Warningf("Router host %v on %v degraded", res.RouterHost.Key(), res.RouterHost.ClusterKey)
 	}
 
 	// Not healthy > healthy
-	if !res.RouterHost.Stats.Healthy && res.Healthy {
+	if !res.RouterHost.LastState.Healthy && res.Healthy {
 		logrus.Infof("Router host %v on %v became healthy", res.RouterHost.Key(), res.RouterHost.ClusterKey)
 	}
 
 	// Update state
-	res.RouterHost.Stats.Healthy = res.Healthy
+	res.RouterHost.LastState.Healthy = res.Healthy
 }

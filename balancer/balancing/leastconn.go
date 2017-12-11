@@ -13,7 +13,7 @@ func getRouterHostWithLeastConn(routerHosts []*core.RouterHost) (*core.RouterHos
 
 	least := routerHosts[0]
 	for key, rh := range routerHosts {
-		if rh.Stats.ActiveConnections <= least.Stats.ActiveConnections {
+		if rh.LastState.ActiveConnections <= least.LastState.ActiveConnections {
 			least = routerHosts[key]
 		}
 	}

@@ -7,12 +7,16 @@ import store from './store'
 Vue.use(VueNativeSock, 'ws://localhost:8089/ws', {store: store, format: 'json'});
 
 // Components
-import Navbar from './Nav.vue';
-import LineChart from './LineChart.vue';
-import HostList from './HostList.vue';
+import Navbar from './shared/Nav.vue';
+import LineChart from './shared/LineChart.vue';
+import BarChart from './shared/BarChart.vue';
+import DognutChart from './shared/DougnutChart.vue';
+import Dashboard from './shared/Dashboard.vue';
 Vue.component('navbar', Navbar);
+Vue.component('dashboard', Dashboard);
 Vue.component('line-chart', LineChart);
-Vue.component('host-list', HostList);
+Vue.component('bar-chart', BarChart);
+Vue.component('dognut-chart', DognutChart);
 
 new Vue({
   el: '#app',

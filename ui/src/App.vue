@@ -1,7 +1,7 @@
 <template>
   <div id="app">
     <navbar></navbar>
-    <host-list></host-list>
+    <dashboard></dashboard>
   </div>
 </template>
 

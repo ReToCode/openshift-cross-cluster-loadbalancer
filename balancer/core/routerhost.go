@@ -1,8 +1,8 @@
 package core
 
 import (
-	"time"
 	"strconv"
+	"time"
 )
 
 type RouterHostStats struct {
@@ -13,11 +13,12 @@ type RouterHostStats struct {
 }
 
 type RouterHost struct {
-	ClusterKey string          `json:"clusterKey"`
-	HostIP     string          `json:"hostIP"`
-	HttpPort   int             `json:"httpPort"`
-	HttpsPort  int             `json:"httpsPort"`
-	Stats      RouterHostStats `json:"stats"`
+	ClusterKey string            `json:"clusterKey"`
+	HostIP     string            `json:"hostIP"`
+	HttpPort   int               `json:"httpPort"`
+	HttpsPort  int               `json:"httpsPort"`
+	LastState  RouterHostStats   `json:"-"`
+	Stats      []RouterHostStats `json:"stats"`
 
 	healthCheck *HealthCheck
 }
@@ -28,7 +29,8 @@ func NewRouterHost(ip string, httpPort int, httpsPort int, s chan HealthCheckRes
 		HostIP:     ip,
 		HttpPort:   httpPort,
 		HttpsPort:  httpsPort,
-		Stats:      RouterHostStats{},
+		LastState:  RouterHostStats{},
+		Stats:      []RouterHostStats{},
 	}
 
 	rh.healthCheck = NewHealthCheck(rh, rh.HttpPort, s, 1*time.Second)
@@ -45,4 +47,20 @@ func (rh *RouterHost) Start() {
 
 func (rh *RouterHost) Stop() {
 	rh.healthCheck.Stop()
+}
+
+func (rh *RouterHost) UpdateStats() {
+	if len(rh.Stats) >= MaxTicks {
+		rh.Stats = rh.Stats[1:]
+	} else {
+		for i :=0; i <= MaxTicks; i++ {
+			rh.Stats = append(rh.Stats, RouterHostStats{})
+		}
+	}
+	rh.Stats = append(rh.Stats, RouterHostStats{
+		TotalConnections: rh.LastState.TotalConnections,
+		Healthy: rh.LastState.Healthy,
+		ActiveConnections: rh.LastState.ActiveConnections,
+		RefusedConnections: rh.LastState.RefusedConnections,
+	})
 }

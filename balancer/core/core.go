@@ -5,6 +5,8 @@ import (
 	"net"
 )
 
+const MaxTicks = 40
+
 type Context struct {
 	HTTPS    bool
 	Hostname string
@@ -18,9 +20,11 @@ type RouterHostIdentifier struct {
 
 type GlobalStats struct {
 	Mutation           string       `json:"mutation"`
-	HostList           []RouterHost `json:"hostList"`
+	HostList           []RouterHost `json:"hosts"`
 	Ticks              []string     `json:"ticks"`
 	OverallConnections []uint       `json:"overallConnections"`
+	UnhealthyHosts     []int        `json:"unhealthyHosts"`
+	HealthyHosts       []int        `json:"healthyHosts"`
 }
 
 type ReadWriteCount struct {
