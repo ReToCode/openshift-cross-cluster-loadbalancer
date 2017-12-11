@@ -56,6 +56,7 @@ type Scheduler struct {
 	statsOperation     chan StatsOperation
 	elect              chan ElectRequest
 	connections        chan uint
+	ResetStats         chan bool
 	stop               chan bool
 }
 
@@ -72,6 +73,7 @@ func NewScheduler() *Scheduler {
 		statsOperation:     make(chan StatsOperation),
 		elect:              make(chan ElectRequest),
 		connections:        make(chan uint),
+		ResetStats:         make(chan bool),
 		stop:               make(chan bool),
 	}
 }
@@ -82,6 +84,9 @@ func (s *Scheduler) Start() {
 	go func() {
 		for {
 			select {
+			case <-s.ResetStats:
+				s.resetStats()
+
 			case conn := <-s.connections:
 				s.lastConnections = conn
 
@@ -226,6 +231,14 @@ func (s *Scheduler) updateGlobalStats() {
 
 	// Send the stats to the UI
 	s.StatsUpdate <- s.globalStats
+}
+
+func (s *Scheduler) resetStats() {
+	for _, cl := range s.clusters {
+		for _, rh := range cl.RouterHosts {
+			rh.ResetStats()
+		}
+	}
 }
 
 func (s *Scheduler) handleRouterHostStats(op StatsOperation) {

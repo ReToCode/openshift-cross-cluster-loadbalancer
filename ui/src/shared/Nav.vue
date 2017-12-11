@@ -1,9 +1,16 @@
 <template>
   <div class="navbar">
     <div class="navbar-inner">
-      <ul class="nav">OpenShift Cross Cluster Loadbalancer</ul>
-      <ul class="nav pull-right">
-        <a href="https://github.com/ReToCode/openshift-cross-cluster-loadbalancer">By ReToCode</a>
+      <ul>
+        <li class="nav">OpenShift Cross Cluster Loadbalancer</li>
+        <li class="nav">
+          <a class="pointer" v-on:click="resetStats">
+            Reset stats
+          </a>
+        </li>
+        <li class="nav pull-right">
+          By <a href="https://github.com/ReToCode/openshift-cross-cluster-loadbalancer">ReToCode</a>
+        </li>
       </ul>
     </div>
   </div>
@@ -12,8 +19,10 @@
 <script>
   export default {
     name: 'navbar',
-    data() {
-      return {}
+    methods: {
+      resetStats: function(evt) {
+        this.$http.post('/ui/resetstats',{})
+      }
     }
   }
 </script>
@@ -24,16 +33,19 @@
     position: relative;
     z-index: 110;
   }
+
   .navbar-inner {
     min-height: 52px;
     padding-right: 1rem;
     background-color: #292929;
     border-bottom: 1px solid #141414;
   }
+
   .nav {
     margin: 0;
     list-style: none;
   }
+
   .navbar .nav {
     position: relative;
     left: 0;
@@ -52,14 +64,21 @@
     line-height: 1;
     -webkit-font-smoothing: antialiased;
   }
-  .pull-right {
-    float: right!important;
+
+  .pointer {
+    cursor: pointer;
   }
+
+  .pull-right {
+    float: right !important;
+  }
+
   .navbar .nav.pull-right {
     float: right;
     margin-right: 0;
   }
-  .navbar .nav>li>a {
+
+  .navbar .nav > li > a {
     color: #d8d9da;
   }
 </style>

@@ -34,6 +34,10 @@ func RunAPI(bind string, b *balancer.Balancer) {
 	router.GET("/ws", func(c *gin.Context) {
 		onUISocket(c.Writer, c.Request, b)
 	})
+	router.POST("/ui/resetstats", func(c *gin.Context) {
+		b.Scheduler.ResetStats <- true
+		c.Status(http.StatusOK)
+	})
 
 	go sendStatisticsToUI(b)
 

@@ -49,6 +49,10 @@ func (rh *RouterHost) Stop() {
 	rh.healthCheck.Stop()
 }
 
+func (rh *RouterHost) ResetStats() {
+	rh.LastState.TotalConnections = 0
+}
+
 func (rh *RouterHost) UpdateStats() {
 	if len(rh.Stats) >= MaxTicks {
 		rh.Stats = rh.Stats[1:]
@@ -63,4 +67,7 @@ func (rh *RouterHost) UpdateStats() {
 		ActiveConnections: rh.LastState.ActiveConnections,
 		RefusedConnections: rh.LastState.RefusedConnections,
 	})
+
+	// Reset RefusedConnections since last tick
+	rh.LastState.RefusedConnections = 0
 }

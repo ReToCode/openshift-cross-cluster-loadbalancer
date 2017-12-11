@@ -1,10 +1,12 @@
 import Vue from 'vue'
 import App from './App.vue'
 import VueNativeSock from 'vue-native-websocket'
+import VueResource from 'vue-resource';
 
 import store from './store'
 
 Vue.use(VueNativeSock, 'ws://localhost:8089/ws', {store: store, format: 'json'});
+Vue.use(VueResource);
 
 // Components
 import Navbar from './shared/Nav.vue';
