@@ -14,6 +14,9 @@
             opts = this.chartOptions;
           }
 
+          opts.animation = {
+            duration: 400
+          };
           opts.responsive = true;
           opts.maintainAspectRatio = false;
           return opts;

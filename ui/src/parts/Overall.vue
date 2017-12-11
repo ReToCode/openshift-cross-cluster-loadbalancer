@@ -1,5 +1,7 @@
 <template>
-  <line-chart :chart-data="connections"></line-chart>
+  <line-chart
+    :height="300"
+    :chart-data="connections"></line-chart>
 </template>
 
 <script>

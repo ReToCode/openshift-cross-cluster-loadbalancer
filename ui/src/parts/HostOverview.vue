@@ -1,5 +1,6 @@
 <template>
   <bar-chart :chart-data="hosts"
+             :height="300"
              :chart-options="options"></bar-chart>
 </template>
 

@@ -10,13 +10,11 @@ Vue.use(VueNativeSock, 'ws://localhost:8089/ws', {store: store, format: 'json'})
 import Navbar from './shared/Nav.vue';
 import LineChart from './shared/LineChart.vue';
 import BarChart from './shared/BarChart.vue';
-import DognutChart from './shared/DougnutChart.vue';
 import Dashboard from './shared/Dashboard.vue';
 Vue.component('navbar', Navbar);
 Vue.component('dashboard', Dashboard);
 Vue.component('line-chart', LineChart);
 Vue.component('bar-chart', BarChart);
-Vue.component('dognut-chart', DognutChart);
 
 new Vue({
   el: '#app',
