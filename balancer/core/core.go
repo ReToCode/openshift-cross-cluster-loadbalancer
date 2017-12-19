@@ -14,18 +14,28 @@ type Context struct {
 	Conn     BufferedConn
 }
 
-type RouterHostIdentifier struct {
-	ClusterKey    string
-	RouterHostKey string
+type HostStats struct {
+	Healthy            bool   `json:"healthy"`
+	TotalConnections   int64  `json:"totalConnections"`
+	ActiveConnections  uint   `json:"activeConnections"`
+	RefusedConnections uint64 `json:"refusedConnections"`
+}
+
+type RouterHostWithStats struct {
+	ClusterKey string      `json:"clusterKey"`
+	HostIP     string      `json:"hostIP"`
+	HTTPPort   int         `json:"httpPort"`
+	HTTPSPort  int         `json:"httpsPort"`
+	Stats      []HostStats `json:"stats"`
 }
 
 type GlobalStats struct {
-	Mutation           string       `json:"mutation"`
-	HostList           []RouterHost `json:"hosts"`
-	Ticks              []string     `json:"ticks"`
-	OverallConnections []uint       `json:"overallConnections"`
-	UnhealthyHosts     []int        `json:"unhealthyHosts"`
-	HealthyHosts       []int        `json:"healthyHosts"`
+	Mutation           string                         `json:"mutation"`
+	Hosts              map[string]RouterHostWithStats `json:"hosts"`
+	Ticks              []string                       `json:"ticks"`
+	OverallConnections []uint                         `json:"overallConnections"`
+	UnhealthyHosts     []int                          `json:"unhealthyHosts"`
+	HealthyHosts       []int                          `json:"healthyHosts"`
 }
 
 type ReadWriteCount struct {
