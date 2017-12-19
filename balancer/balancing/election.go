@@ -3,9 +3,10 @@ package balancing
 import (
 	"errors"
 
+	"strings"
+
 	"github.com/ReToCode/openshift-cross-cluster-loadbalancer/balancer/core"
 	"github.com/sirupsen/logrus"
-	"strings"
 )
 
 type RouterHostGroup struct {
@@ -34,7 +35,7 @@ func ElectRouterHost(ctx core.Context, clusters map[string]*core.Cluster) (*core
 
 					// Add every healthy router of that cluster
 					for _, rh := range cl.RouterHosts {
-						if !rh.LastState.Healthy {
+						if !rh.IsHealthy {
 							continue
 						}
 						grp.RouterHosts = append(grp.RouterHosts, rh)
@@ -65,7 +66,7 @@ func ElectRouterHost(ctx core.Context, clusters map[string]*core.Cluster) (*core
 	if len(possibleRouterHosts) == 0 {
 		for _, cl := range clusters {
 			for _, rh := range cl.RouterHosts {
-				if !rh.LastState.Healthy {
+				if !rh.IsHealthy {
 					continue
 				}
 				possibleRouterHosts = append(possibleRouterHosts, rh)
@@ -76,4 +77,3 @@ func ElectRouterHost(ctx core.Context, clusters map[string]*core.Cluster) (*core
 	// From all possible router hosts get the one with the least connections
 	return getRouterHostWithLeastConn(possibleRouterHosts)
 }
-

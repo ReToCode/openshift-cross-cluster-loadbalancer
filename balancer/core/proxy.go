@@ -4,71 +4,18 @@ import (
 	"io"
 	"net"
 
-	"time"
-
 	"github.com/sirupsen/logrus"
 )
 
 const (
-	/* Buffer size to handle data from socket */
-	BUFFER_SIZE = 16 * 1024
-
-	/* Interval of pushing r/w stats */
-	PROXY_STATS_PUSH_INTERVAL = 1 * time.Second
+	bufferSize = 16 * 1024
 )
 
-func Proxy(to BufferedConn, from BufferedConn, timeout time.Duration) <-chan ReadWriteCount {
-	stats := make(chan ReadWriteCount)
-	outStats := make(chan ReadWriteCount)
+func Proxy(to BufferedConn, from BufferedConn) <-chan bool {
+	doneChan := make(chan bool)
 
-	rwcBuffer := ReadWriteCount{}
-	ticker := time.NewTicker(PROXY_STATS_PUSH_INTERVAL)
-	flushed := false
-
-	// Stats collecting goroutine
 	go func() {
-		if timeout > 0 {
-			from.SetReadDeadline(time.Now().Add(timeout))
-		}
-
-		for {
-			select {
-			case <-ticker.C:
-				if !rwcBuffer.IsZero() {
-					outStats <- rwcBuffer
-				}
-				flushed = true
-			case rwc, ok := <-stats:
-
-				if !ok {
-					ticker.Stop()
-					if !flushed && !rwcBuffer.IsZero() {
-						outStats <- rwcBuffer
-					}
-					close(outStats)
-					return
-				}
-
-				if timeout > 0 && rwc.CountRead > 0 {
-					from.SetReadDeadline(time.Now().Add(timeout))
-				}
-
-				// Remove non blocking
-				if flushed {
-					rwcBuffer = rwc
-				} else {
-					rwcBuffer.CountWrite += rwc.CountWrite
-					rwcBuffer.CountRead += rwc.CountRead
-				}
-
-				flushed = false
-			}
-		}
-	}()
-
-	// Run proxy copier
-	go func() {
-		err := copyData(to, from, stats)
+		err := copyData(to, from)
 		e, ok := err.(*net.OpError)
 		if err != nil && (!ok || e.Err.Error() != "use of closed network connection") {
 			logrus.Warn(err)
@@ -77,26 +24,20 @@ func Proxy(to BufferedConn, from BufferedConn, timeout time.Duration) <-chan Rea
 		to.Close()
 		from.Close()
 
-		close(stats)
+		doneChan <- true
 	}()
 
-	return outStats
+	return doneChan
 }
 
-func copyData(to io.Writer, from io.Reader, ch chan<- ReadWriteCount) error {
-	buf := make([]byte, BUFFER_SIZE)
-	var err error = nil
+func copyData(to io.Writer, from io.Reader) error {
+	buf := make([]byte, bufferSize)
+	var err error
 
 	for {
 		readN, readErr := from.Read(buf)
-
 		if readN > 0 {
-
 			writeN, writeErr := to.Write(buf[0:readN])
-
-			if writeN > 0 {
-				ch <- ReadWriteCount{CountRead: uint(readN), CountWrite: uint(writeN)}
-			}
 
 			if writeErr != nil {
 				err = writeErr

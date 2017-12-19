@@ -1,9 +1,9 @@
 package balancing
 
 import (
-"errors"
+	"errors"
 
-"github.com/ReToCode/openshift-cross-cluster-loadbalancer/balancer/core"
+	"github.com/ReToCode/openshift-cross-cluster-loadbalancer/balancer/core"
 )
 
 func getRouterHostWithLeastConn(routerHosts []*core.RouterHost) (*core.RouterHost, error) {

@@ -5,6 +5,7 @@ import (
 	"net"
 )
 
+// MaxTicks defines the length of the stats for the UI
 const MaxTicks = 40
 
 type Context struct {

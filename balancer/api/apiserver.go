@@ -61,12 +61,12 @@ func onUISocket(w http.ResponseWriter, r *http.Request, b *balancer.Balancer) {
 func sendStatisticsToUI(b *balancer.Balancer) {
 	for {
 		select {
-		case stats := <-b.Scheduler.StatsUpdate:
+		case stats := <-b.Scheduler.StatsHandler.StatsTick:
 			mux.Lock()
 			if uiConnection != nil {
 				err := uiConnection.WriteJSON(stats)
 				if err != nil {
-					logrus.Errorf("connection to UI was closed, will not send updates now", err)
+					logrus.Error("connection to UI was closed, will not send updates now", err)
 					uiConnection = nil
 				}
 			}
