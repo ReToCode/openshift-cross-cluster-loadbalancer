@@ -13,7 +13,7 @@ import (
 type BalancerConfig struct {
 	httpListen        string
 	httpsListen       string
-	proxyTimeout      time.Duration
+	//proxyTimeout      time.Duration
 	routerHostTimeout time.Duration
 }
 
@@ -37,7 +37,7 @@ func NewBalancer(httpListenCfg string, httpsListenCfg string) *Balancer {
 		cfg: BalancerConfig{
 			httpListen:        httpListenCfg,
 			httpsListen:       httpsListenCfg,
-			proxyTimeout:      10 * time.Second,
+			//proxyTimeout:      10 * time.Second,
 			routerHostTimeout: 5 * time.Second,
 		},
 		clients:    make(map[string]net.Conn),
@@ -96,14 +96,14 @@ func (b *Balancer) Stop() {
 func (b *Balancer) HandleClientDisconnect(client net.Conn) {
 	client.Close()
 	delete(b.clients, client.RemoteAddr().String())
-	b.Scheduler.connections <- uint(len(b.clients))
+	b.Scheduler.StatsHandler.Connections <- uint(len(b.clients))
 }
 
 func (b *Balancer) HandleClientConnect(ctx *core.Context) {
 	client := ctx.Conn
 
 	b.clients[client.RemoteAddr().String()] = client
-	b.Scheduler.connections <- uint(len(b.clients))
+	b.Scheduler.StatsHandler.Connections <- uint(len(b.clients))
 
 	go func() {
 		b.handleConnection(ctx)
@@ -204,9 +204,9 @@ func (b *Balancer) handleConnection(ctx *core.Context) {
 
 	var port int
 	if ctx.HTTPS {
-		port = routerHost.HttpsPort
+		port = routerHost.HTTPSPort
 	} else {
-		port = routerHost.HttpPort
+		port = routerHost.HTTPPort
 	}
 
 	logrus.Debugf("Selected target router host: %v in port %v", routerHost.Key(), port)
@@ -223,16 +223,16 @@ func (b *Balancer) handleConnection(ctx *core.Context) {
 	defer b.Scheduler.UpdateRouterStats(routerHost.ClusterKey, routerHost.Key(), DecrementConnection)
 
 	// Proxy the request & response bytes
-	cs := core.Proxy(clientConn, bufferedRouterHostConn, b.cfg.proxyTimeout)
-	bs := core.Proxy(bufferedRouterHostConn, clientConn, b.cfg.proxyTimeout)
+	doneRxChan := core.Proxy(clientConn, bufferedRouterHostConn)
+	doneTxChan := core.Proxy(bufferedRouterHostConn, clientConn)
 
 	isTx, isRx := true, true
 	for isTx || isRx {
 		select {
-		case _, ok := <-cs:
-			isRx = ok
-		case _, ok := <-bs:
-			isTx = ok
+		case <-doneRxChan:
+			isRx = false
+		case <-doneTxChan:
+			isTx = false
 		}
 	}
 }

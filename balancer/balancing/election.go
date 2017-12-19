@@ -35,7 +35,7 @@ func ElectRouterHost(ctx core.Context, clusters map[string]*core.Cluster) (*core
 
 					// Add every healthy router of that cluster
 					for _, rh := range cl.RouterHosts {
-						if !rh.IsHealthy {
+						if !rh.LastState.Healthy {
 							continue
 						}
 						grp.RouterHosts = append(grp.RouterHosts, rh)
@@ -66,7 +66,7 @@ func ElectRouterHost(ctx core.Context, clusters map[string]*core.Cluster) (*core
 	if len(possibleRouterHosts) == 0 {
 		for _, cl := range clusters {
 			for _, rh := range cl.RouterHosts {
-				if !rh.IsHealthy {
+				if !rh.LastState.Healthy {
 					continue
 				}
 				possibleRouterHosts = append(possibleRouterHosts, rh)
