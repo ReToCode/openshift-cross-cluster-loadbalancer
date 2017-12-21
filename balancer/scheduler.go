@@ -96,22 +96,55 @@ func (s *Scheduler) Stop() {
 	s.stop <- true
 }
 
-func (s *Scheduler) AddCluster(key string, routes []core.Route) {
-	logrus.Infof("Added cluster: %v", key)
-	cluster := core.NewCluster(key, routes)
-
+func (s *Scheduler) AddOrUpdateCluster(clusterKey string, data core.ClusterUpdate) {
 	s.clusters.mux.Lock()
-	s.clusters.v[key] = cluster
+
+	if existing, exists := s.clusters.v[clusterKey]; exists {
+		s.updateCluster(existing, data)
+	} else {
+		s.addCluster(clusterKey, data)
+	}
+
 	s.clusters.mux.Unlock()
 }
 
-func (s *Scheduler) AddRouterHost(clusterKey string, ip string, httpPort int, httpsPort int) {
-	newHost := core.NewRouterHost(ip, httpPort, httpsPort, s.healthCheckResults, clusterKey)
-	logrus.Infof("New router host was added: %v to scheduler", newHost.Key())
+func (s *Scheduler) addCluster(clusterKey string, data core.ClusterUpdate) {
+	logrus.Infof("Added cluster: %v", clusterKey)
 
-	s.clusters.mux.Lock()
-	s.clusters.v[clusterKey].RouterHosts[newHost.Key()] = newHost
-	s.clusters.mux.Unlock()
+	// Create the new cluster
+	s.clusters.v[clusterKey] = core.NewCluster(clusterKey, data.Routes)
+
+	// Add all router hosts to it
+	for _, rh := range data.RouterHosts {
+		s.addRouterHost(clusterKey, rh)
+	}
+}
+
+func (s *Scheduler) addRouterHost(clusterKey string, rh core.RouterHost) {
+	newHost := core.NewRouterHost(rh.Name, rh.HostIP, rh.HTTPPort, rh.HTTPSPort, s.healthCheckResults, clusterKey)
+	logrus.Infof("New router host was added: %v to scheduler", newHost.Name)
+
+	s.clusters.v[clusterKey].RouterHosts[newHost.Name] = newHost
+}
+
+func (s *Scheduler) updateCluster(ecl *core.Cluster, data core.ClusterUpdate) {
+	// Update routes
+	ecl.Routes = data.Routes
+
+	// Add new routers
+	for _, rh := range data.RouterHosts {
+		if _, exists := ecl.RouterHosts[rh.Name]; !exists {
+			s.addRouterHost(ecl.Key, rh)
+		}
+	}
+
+	// Remove old routers
+	for _, erh := range ecl.RouterHosts {
+		if _, exists := data.RouterHosts[erh.Name]; !exists {
+			logrus.Infof("Router host %v no longer exists, deleting it from cluster", erh.Name)
+			delete(ecl.RouterHosts, erh.Name)
+		}
+	}
 }
 
 func (s *Scheduler) UpdateRouterStats(clusterKey string, routerHostKey string, action StatsOperationAction) {
@@ -202,12 +235,12 @@ func (s *Scheduler) handleHealthCheckResults(res core.HealthCheckResult) {
 
 	// Healthy > not healthy
 	if res.RouterHost.LastState.Healthy && !res.Healthy {
-		logrus.Warningf("Router host %v on %v degraded", res.RouterHost.Key(), res.RouterHost.ClusterKey)
+		logrus.Warningf("Router host %v on %v degraded", res.RouterHost.Name, res.RouterHost.ClusterKey)
 	}
 
 	// Not healthy > healthy
 	if !res.RouterHost.LastState.Healthy && res.Healthy {
-		logrus.Infof("Router host %v on %v became healthy", res.RouterHost.Key(), res.RouterHost.ClusterKey)
+		logrus.Infof("Router host %v on %v became healthy", res.RouterHost.Name, res.RouterHost.ClusterKey)
 	}
 
 	// Update state

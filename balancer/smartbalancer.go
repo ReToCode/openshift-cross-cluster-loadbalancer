@@ -209,18 +209,18 @@ func (b *Balancer) handleConnection(ctx *core.Context) {
 		port = routerHost.HTTPPort
 	}
 
-	logrus.Debugf("Selected target router host: %v in port %v", routerHost.Key(), port)
+	logrus.Debugf("Selected target router host: %v in port %v", routerHost.Name, port)
 
 	// Connect to router host
 	routerHostConn, err := net.DialTimeout("tcp", routerHost.HostIP+":"+strconv.Itoa(port), b.cfg.routerHostTimeout)
 	bufferedRouterHostConn := core.NewBufferedConn(routerHostConn)
 	if err != nil {
-		b.Scheduler.UpdateRouterStats(routerHost.ClusterKey, routerHost.Key(), IncrementRefused)
-		logrus.Errorf("Error connecting to router host: %v. Err: %v", routerHost.Key(), err)
+		b.Scheduler.UpdateRouterStats(routerHost.ClusterKey, routerHost.Name, IncrementRefused)
+		logrus.Errorf("Error connecting to router host: %v. Err: %v", routerHost.Name, err)
 		return
 	}
-	b.Scheduler.UpdateRouterStats(routerHost.ClusterKey, routerHost.Key(), IncrementConnection)
-	defer b.Scheduler.UpdateRouterStats(routerHost.ClusterKey, routerHost.Key(), DecrementConnection)
+	b.Scheduler.UpdateRouterStats(routerHost.ClusterKey, routerHost.Name, IncrementConnection)
+	defer b.Scheduler.UpdateRouterStats(routerHost.ClusterKey, routerHost.Name, DecrementConnection)
 
 	// Proxy the request & response bytes
 	doneRxChan := core.Proxy(clientConn, bufferedRouterHostConn)

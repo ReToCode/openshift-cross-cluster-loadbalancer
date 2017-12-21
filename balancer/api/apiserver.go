@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/sirupsen/logrus"
+	"github.com/ReToCode/openshift-cross-cluster-loadbalancer/balancer/core"
 )
 
 func init() {
@@ -29,7 +30,8 @@ var uiConnection *websocket.Conn
 func RunAPI(bind string, b *balancer.Balancer) {
 	logrus.Infof("Starting api server on " + bind)
 
-	router := gin.Default()
+	router := gin.New()
+	router.Use(gin.Recovery())
 
 	router.GET("/ws", func(c *gin.Context) {
 		onUISocket(c.Writer, c.Request, b)
@@ -37,6 +39,18 @@ func RunAPI(bind string, b *balancer.Balancer) {
 	router.POST("/ui/resetstats", func(c *gin.Context) {
 		b.Scheduler.ResetStats <- true
 		c.Status(http.StatusOK)
+	})
+	router.POST("/api/cluster/:clusterkey", func(c *gin.Context) {
+		clusterKey := c.Param("clusterkey")
+
+		var data core.ClusterUpdate
+		if err := c.BindJSON(&data); err != nil {
+			logrus.Warnf("Invalid API call to /api/cluster/%v. Err: %v", clusterKey, err.Error())
+			c.Status(http.StatusBadRequest)
+		} else {
+			b.Scheduler.AddOrUpdateCluster(clusterKey, data)
+			c.Status(http.StatusCreated)
+		}
 	})
 
 	go sendStatisticsToUI(b)

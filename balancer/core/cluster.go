@@ -3,17 +3,22 @@ package core
 import "github.com/sirupsen/logrus"
 
 type Route struct {
-	URL    string
-	Weight int
+	URL    string `json:"url"`
+	Weight int    `json:"weight"`
 }
 
 type Cluster struct {
 	Key         string
 	RouterHosts map[string]*RouterHost
-	Routes      []Route
+	Routes      map[string]Route
 }
 
-func NewCluster(key string, routes []Route) *Cluster {
+type ClusterUpdate struct {
+	Routes      map[string]Route  `json:"routes"`
+	RouterHosts map[string]RouterHost `json:"routerHosts"`
+}
+
+func NewCluster(key string, routes map[string]Route) *Cluster {
 	// Verify routes
 	for _, r := range routes {
 		if len(r.URL) == 0 || r.Weight <= 0 {

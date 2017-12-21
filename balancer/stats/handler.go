@@ -81,20 +81,20 @@ func (s *StatsHandler) updateRouterHosts(rhs []core.RouterHost) {
 
 	for i := range rhs {
 		rh := rhs[i]
-		oldRH, ok := s.stats.v.Hosts[rh.Key()]
+		oldRH, ok := s.stats.v.Hosts[rh.Name]
 
 		if ok {
 			// if we have this router host, update the health state
-			logrus.Debugf("Updating existing router %v", rh.Key())
+			logrus.Debugf("Updating existing router %v", rh.Name)
 
 			oldRH.Stats = append(oldRH.Stats, rh.LastState)
 
 			oldRH = s.updateRouterHostStats(oldRH)
 
-			updated[rh.Key()] = oldRH
+			updated[rh.Name] = oldRH
 		} else {
 			// router host is new, create a new entry
-			logrus.Debugf("New router %v", rh.Key())
+			logrus.Debugf("New router %v", rh.Name)
 
 			newRH := core.RouterHostWithStats{
 				ClusterKey: rh.ClusterKey,
@@ -107,7 +107,7 @@ func (s *StatsHandler) updateRouterHosts(rhs []core.RouterHost) {
 			newRH = s.updateRouterHostStats(newRH)
 			newRH.Stats = append(newRH.Stats, rh.LastState)
 
-			updated[rh.Key()] = newRH
+			updated[rh.Name] = newRH
 		}
 	}
 

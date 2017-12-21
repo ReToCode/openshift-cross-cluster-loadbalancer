@@ -1,21 +1,22 @@
 package core
 
 import (
-	"strconv"
 	"time"
 )
 
 type RouterHost struct {
-	ClusterKey string
-	HostIP     string
-	HTTPPort   int
-	HTTPSPort  int
-	LastState  HostStats
+	ClusterKey  string
+	Name      string `json:"name"`
+	HostIP      string `json:"hostIP"`
+	HTTPPort    int    `json:"httpPort"`
+	HTTPSPort   int    `json:"httpsPort"`
+	LastState   HostStats
 	healthCheck *HealthCheck
 }
 
-func NewRouterHost(ip string, httpPort int, httpsPort int, s chan HealthCheckResult, clusterKey string) *RouterHost {
+func NewRouterHost(name string, ip string, httpPort int, httpsPort int, s chan HealthCheckResult, clusterKey string) *RouterHost {
 	rh := &RouterHost{
+		Name: name,
 		ClusterKey: clusterKey,
 		HostIP:     ip,
 		HTTPPort:   httpPort,
@@ -30,10 +31,6 @@ func NewRouterHost(ip string, httpPort int, httpsPort int, s chan HealthCheckRes
 	return rh
 }
 
-func (rh *RouterHost) Key() string {
-	return rh.HostIP + "-" + strconv.Itoa(rh.HTTPPort) + "/" + strconv.Itoa(rh.HTTPSPort)
-}
-
 func (rh *RouterHost) Start() {
 	rh.healthCheck.Start()
 }
@@ -41,4 +38,3 @@ func (rh *RouterHost) Start() {
 func (rh *RouterHost) Stop() {
 	rh.healthCheck.Stop()
 }
-
