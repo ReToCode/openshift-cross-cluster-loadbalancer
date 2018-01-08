@@ -15,7 +15,7 @@ script:
 - mkdir -p ./dist/static/dist
 
 # Build golang
-- gox -osarch="linux/amd64" -output "./dist/{{.Dir}}" github.com/retocode/openshift-cross-cluster-loadbalancer/
+- gox -osarch="linux/amd64" -output "./dist/{{.Dir}}"
 
 # Build the UI
 - cd ./ui
