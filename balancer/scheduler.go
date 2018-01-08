@@ -121,8 +121,16 @@ func (s *Scheduler) addCluster(clusterKey string, data core.ClusterUpdate) {
 }
 
 func (s *Scheduler) addRouterHost(clusterKey string, rh core.RouterHost) {
+	// Hack for Local
+	if clusterKey == "ose1" {
+		rh.HostIP = "192.168.99.102"
+	}
+	if clusterKey == "ose2" {
+		rh.HostIP = "192.168.99.103"
+	}
+
 	newHost := core.NewRouterHost(rh.Name, rh.HostIP, rh.HTTPPort, rh.HTTPSPort, s.healthCheckResults, clusterKey)
-	logrus.Infof("New router host was added: %v to scheduler", newHost.Name)
+	logrus.Infof("New router host was added: %v to scheduler. %v", newHost.Name, newHost.HostIP)
 
 	s.clusters.v[clusterKey].RouterHosts[newHost.Name] = newHost
 }

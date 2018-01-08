@@ -21,11 +21,6 @@ func init() {
 	logrus.SetLevel(logrus.InfoLevel)
 }
 
-const (
-	OSE1 = "OpenShift_1"
-	OSE2 = "OpenShift_2"
-)
-
 func main() {
 	go func() {
 		c := make(chan os.Signal, 1)
@@ -52,15 +47,7 @@ func main() {
 	b.Start()
 
 	// Run web server
-	go api.RunAPI("localhost:8089", b)
-
-	// Add dummy clusters
-	//b.Scheduler.AddCluster(OSE1, []core.Route{{URL: "world.ch", Weight: 1}, {URL: "test.ch", Weight: 1}, {URL: "only.ch", Weight: 1}})
-	//b.Scheduler.AddRouterHost(OSE1, "localhost", 8180, 8143)
-	//
-	//b.Scheduler.AddCluster(OSE2, []core.Route{{URL: "world.ch", Weight: 2}, {URL: "test.ch", Weight: 1}})
-	//b.Scheduler.AddRouterHost(OSE2, "localhost", 8280, 8243)
-	//b.Scheduler.AddRouterHost(OSE2, "localhost", 8380, 8343)
+	go api.RunAPI(":8089", b)
 
 	// Sleep 4 ever
 	select {}
