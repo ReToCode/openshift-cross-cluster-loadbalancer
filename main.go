@@ -4,20 +4,15 @@ import (
 	"os"
 
 	"os/signal"
-	"runtime"
 	"syscall"
 
 	"github.com/ReToCode/openshift-cross-cluster-loadbalancer/balancer"
 	"github.com/ReToCode/openshift-cross-cluster-loadbalancer/balancer/api"
 	"github.com/sirupsen/logrus"
-
-	"net/http"
-	_ "net/http/pprof"
 )
 
 func init() {
 	logrus.SetOutput(os.Stdout)
-	//logrus.SetLevel(logrus.DebugLevel)
 	logrus.SetLevel(logrus.InfoLevel)
 }
 
@@ -35,15 +30,8 @@ func main() {
 		logrus.Fatalf("Signal (%v) Detected, Shutting Down", sig)
 	}()
 
-	// Profiling
-	runtime.SetMutexProfileFraction(5)
-
-	go func() {
-		logrus.Println(http.ListenAndServe("localhost:6060", nil))
-	}()
-
 	// Dummy config to develop
-	b := balancer.NewBalancer("localhost:8080", "localhost:8543")
+	b := balancer.NewBalancer(":8080", ":8443")
 	b.Start()
 
 	// Run web server

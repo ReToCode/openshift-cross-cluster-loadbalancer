@@ -6,10 +6,10 @@ import (
 	"sync"
 
 	"github.com/ReToCode/openshift-cross-cluster-loadbalancer/balancer"
+	"github.com/ReToCode/openshift-cross-cluster-loadbalancer/balancer/core"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/sirupsen/logrus"
-	"github.com/ReToCode/openshift-cross-cluster-loadbalancer/balancer/core"
 )
 
 func init() {
@@ -33,6 +33,9 @@ func RunAPI(bind string, b *balancer.Balancer) {
 	router := gin.New()
 	router.Use(gin.Recovery())
 
+	router.GET("/", func(c *gin.Context) {
+		c.Redirect(http.StatusTemporaryRedirect, "/s/")
+	})
 	router.GET("/ws", func(c *gin.Context) {
 		onUISocket(c.Writer, c.Request, b)
 	})
@@ -40,6 +43,7 @@ func RunAPI(bind string, b *balancer.Balancer) {
 		b.Scheduler.ResetStats <- true
 		c.Status(http.StatusOK)
 	})
+	router.StaticFS("/s/", http.Dir("static"))
 	router.POST("/api/cluster/:clusterkey", func(c *gin.Context) {
 		clusterKey := c.Param("clusterkey")
 
