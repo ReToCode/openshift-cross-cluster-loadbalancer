@@ -15,14 +15,14 @@ script:
 - mkdir -p ./dist/static/dist
 
 # Build golang
-- gox -osarch="linux/amd64" -output "./dist/{{.Dir}}" github.com/retocode/openshift-cross-cluster-loadbalancer
+- gox -osarch="linux/amd64" -output "./dist/{{.Dir}}" github.com/retocode/openshift-cross-cluster-loadbalancer/
 
 # Build the UI
 - cd ./ui
 - npm install
 - npm run build
-- cp ./dist/build.js ../../dist/static/dist
-- cp index.html ../../dist/static
+- cp ./dist/build.js ../dist/static/dist
+- cp index.html ../dist/static
 - pwd # /home/travis/gopath/src/github.com/retocode/openshift-cross-cluster-loadbalancer/ui
 - cd ..
 - pwd # /home/travis/gopath/src/github.com/retocode/openshift-cross-cluster-loadbalancer
