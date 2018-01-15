@@ -9,6 +9,7 @@ import (
 	"github.com/ReToCode/openshift-cross-cluster-loadbalancer/balancer/core"
 	"github.com/ReToCode/openshift-cross-cluster-loadbalancer/balancer/stats"
 	"github.com/sirupsen/logrus"
+	"os"
 )
 
 type StatsOperationAction int
@@ -121,12 +122,15 @@ func (s *Scheduler) addCluster(clusterKey string, data core.ClusterUpdate) {
 }
 
 func (s *Scheduler) addRouterHost(clusterKey string, rh core.RouterHost) {
-	// Hack for Local
-	if clusterKey == "ose1" {
-		rh.HostIP = "192.168.99.102"
+	// For testing purposes, add an override for Router host IPs
+	ose1Debug := os.Getenv("OSE1_OVERRIDE")
+	ose2Debug := os.Getenv("OSE2_OVERRIDE")
+
+	if len(ose1Debug) > 0 && clusterKey == "ose1" {
+		rh.HostIP = ose1Debug
 	}
-	if clusterKey == "ose2" {
-		rh.HostIP = "192.168.99.103"
+	if len(ose2Debug) > 0 && clusterKey == "ose2" {
+		rh.HostIP = ose2Debug
 	}
 
 	newHost := core.NewRouterHost(rh.Name, rh.HostIP, rh.HTTPPort, rh.HTTPSPort, s.healthCheckResults, clusterKey)
