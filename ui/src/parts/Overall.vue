@@ -24,4 +24,9 @@
   }
 </script>
 
-
+<style>
+  a {
+    text-decoration: none;
+    color: #eff0f1;
+  }
+</style>
