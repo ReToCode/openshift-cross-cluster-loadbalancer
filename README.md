@@ -1,5 +1,5 @@
 # OpenShift cross cluster load balancer
-This is a tcp load balancer that is aware of multiple OpenShift clusters and their exported routes. Also uses pod filters to determine where a HA-Proxy is running. It is a prototype that was created during my masters thesis to prove an idea to update productive OpenShift clusters without any downtime and risk. The full thesis can be found here: [Master Thesis](https://raw.githubusercontent.com/ReToCode/openshift-cross-cluster-loadbalancer/master/MT_Reto_Lehmann_OpenShiftSmartCrossClusterLoadbalancing.pdf)
+This is a tcp load balancer that is aware of multiple OpenShift clusters and their exported routes. Also uses pod filters to determine where a HA-Proxy is running. It is a prototype that was created during my masters thesis to prove an idea to update productive OpenShift clusters without any downtime and risk. The full thesis can be found here: [Master Thesis](https://github.com/ReToCode/openshift-cross-cluster-loadbalancer/blob/master/MT_Reto_Lehmann_OpenShiftSmartCrossClusterLoadbalancing.pdf)
 
 ## Screenshot
 ![Image of the UI](https://github.com/ReToCode/openshift-cross-cluster-loadbalancer/blob/master/img/ui.png)
