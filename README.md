@@ -63,9 +63,9 @@ curl ose1-direct-myproject.192.168.99.100.nip.io
 curl ose2-direct-myproject.192.168.99.103.nip.io
 
 # Get the apps balanced
-curl localhost:8080 -H 'Host: myapp.sbb.ch'
+curl localhost:8080 -H 'Host: myapp.mydomain.com'
 
 # Get the apps during a migration from one cluster to the other (weighted)
-curl http://localhost:8080 -H 'Host: myapp-migrate.sbb.ch' 
+curl http://localhost:8080 -H 'Host: myapp-migrate.mydomain.com' 
 ```
 
