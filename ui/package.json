@@ -2,7 +2,7 @@
   "name": "smart-lb-frontend",
   "description": "A frontend for the smart openshift cross cluster load balancer",
   "version": "1.0.0",
-  "author": "Reto Lehmann <reto.lehmann@me.com>",
+  "author": "ReToCode @ Github",
   "license": "MIT",
   "private": true,
   "scripts": {
